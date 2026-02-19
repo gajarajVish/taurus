@@ -25,8 +25,8 @@ const DEFAULT_AI_SETTINGS: AIInsightsSettings = {
 
 export async function getStorage(): Promise<StorageData> {
   return new Promise((resolve) => {
-    chrome.storage.local.get(STORAGE_DEFAULTS, (result) => {
-      resolve(result as StorageData);
+    chrome.storage.local.get(null, (result) => {
+      resolve({ ...STORAGE_DEFAULTS, ...result } as StorageData);
     });
   });
 }
