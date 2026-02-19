@@ -118,7 +118,7 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
           {analysis.trends.map((t: string, i: number) => (
             <div key={i} className="pa-item">
               <span className="pa-bullet" style={{ background: 'var(--color-brand)' }} />
-              {t}
+              <span className="pa-item-text">{t}</span>
             </div>
           ))}
         </div>
@@ -138,16 +138,15 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
                     {w.positionIndices.map((idx: number) => {
                       const pos = displayPositions[idx];
                       if (!pos) return null;
-                      const label = pos.marketQuestion.length > 28
-                        ? pos.marketQuestion.slice(0, 28) + '…'
-                        : pos.marketQuestion;
                       return (
                         <button
                           key={idx}
                           className="pa-exit-link pa-exit-link--warning"
                           onClick={() => onExitPosition(pos)}
+                          title={pos.marketQuestion}
                         >
-                          Exit → {label}
+                          <span className="pa-exit-link-arrow">Exit →</span>
+                          <span className="pa-exit-link-label">{pos.marketQuestion}</span>
                         </button>
                       );
                     })}
@@ -173,16 +172,15 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
                     {h.positionIndices.map((idx: number) => {
                       const pos = displayPositions[idx];
                       if (!pos) return null;
-                      const label = pos.marketQuestion.length > 28
-                        ? pos.marketQuestion.slice(0, 28) + '…'
-                        : pos.marketQuestion;
                       return (
                         <button
                           key={idx}
                           className="pa-exit-link pa-exit-link--success"
                           onClick={() => onExitPosition(pos)}
+                          title={pos.marketQuestion}
                         >
-                          Exit → {label}
+                          <span className="pa-exit-link-arrow">Exit →</span>
+                          <span className="pa-exit-link-label">{pos.marketQuestion}</span>
                         </button>
                       );
                     })}
