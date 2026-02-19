@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Taurus",
+  "name": "PolyOverlay",
   "version": "0.1.0",
   "description": "Polymarket overlay for X.com",
   "permissions": [
@@ -16,7 +16,7 @@
     "http://localhost:3000/*"
   ],
   "action": {
-    "default_title": "Taurus",
+    "default_title": "PolyOverlay",
     "default_popup": "src/popup/index.html"
   },
   "background": {

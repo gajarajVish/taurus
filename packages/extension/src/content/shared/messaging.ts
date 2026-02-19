@@ -2,10 +2,9 @@ type ContentMessage =
   | { type: 'GET_WALLET_STATE' }
   | { type: 'GET_POSITIONS' }
   | { type: 'GET_METRICS' }
-  | { type: 'PLACE_BET'; payload: { marketId: string; side: 'yes' | 'no'; amount: string; price: number; outcomeId: string } }
+  | { type: 'PLACE_BET'; payload: { marketId: string; side: 'yes' | 'no'; amount: string } }
   | { type: 'TOGGLE_SIDECAR' }
-  | { type: 'GET_SIDECAR_STATE' }
-  | { type: 'MARKETS_MATCH'; tweetText: string };
+  | { type: 'GET_SIDECAR_STATE' };
 
 type BackgroundResponse<T> =
   | { success: true; data: T }

@@ -4,8 +4,7 @@ import { createShadowRoot } from '../shared/createShadowRoot';
 import { TweetButtons } from './TweetButtons';
 import { tweetButtonStyles } from './styles';
 import { api } from '../../lib/api';
-import { getInstallId, getAISettings } from '../../lib/storage';
-import type { Market } from '@taurus/types';
+import type { Market } from '@polyoverlay/types';
 
 interface InjectedTweet {
   container: HTMLElement;
@@ -65,14 +64,11 @@ export async function injectTweetButtons(
     );
 
     injectedTweets.set(tweetElement, { container, root: reactRoot });
-    console.log('[Taurus] Injected widget for tweet', tweetId, '—', match.question);
-
-    // Record the tweet view for AI analysis (fire-and-forget)
-    recordTweetView(tweetId, tweetText, match.id);
+    console.log('[PolyOverlay] Injected widget for tweet', tweetId, '—', match.question);
   } catch (err) {
     // Swallow all errors — backend may not be running, network may fail.
     // The extension must never crash the host page.
-    console.warn('[Taurus] Widget injection skipped:', (err as Error).message);
+    console.warn('[PolyOverlay] Widget injection skipped:', (err as Error).message);
   }
 }
 
@@ -84,34 +80,5 @@ export function removeTweetButtons(tweetElement: Element) {
     }
     injected.container.remove();
     injectedTweets.delete(tweetElement);
-  }
-}
-
-// Record a tweet view for AI analysis (non-blocking)
-async function recordTweetView(
-  tweetId: string,
-  tweetText: string,
-  marketId: string
-): Promise<void> {
-  try {
-    // Check if AI insights are enabled
-    const settings = await getAISettings();
-    if (!settings.enabled) return;
-
-    // Get install ID
-    const installId = await getInstallId();
-
-    // Record the view
-    await api.tweets.recordView({
-      installId,
-      tweetId,
-      tweetText,
-      marketId,
-    });
-
-    console.log('[Taurus] Recorded tweet view for AI analysis:', tweetId);
-  } catch (err) {
-    // Silently ignore errors — this is a non-critical feature
-    console.debug('[Taurus] Failed to record tweet view:', (err as Error).message);
   }
 }

@@ -1,4 +1,4 @@
-import type { Market } from '@taurus/types';
+import type { Market } from '@polyoverlay/types';
 
 // ── Stop words ───────────────────────────────────────────────────────────────
 // Words that carry no semantic signal for market matching — filtered before scoring.

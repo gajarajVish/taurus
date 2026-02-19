@@ -1,11 +1,5 @@
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, '../../../.env') });
-
-const { createServer } = await import('./server.js');
+// Backend entry point - to be implemented
+import { createServer } from './server.js';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 

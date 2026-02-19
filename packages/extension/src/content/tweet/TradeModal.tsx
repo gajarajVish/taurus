@@ -1,9 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { Market, Insight } from '@taurus/types';
+import type { Market } from '@polyoverlay/types';
 import { getWalletState, shortAddress, type WalletState } from '../../lib/wallet';
-import { api } from '../../lib/api';
-import { getInstallId, getAISettings } from '../../lib/storage';
-import { sendMessage } from '../shared/messaging';
 
 interface TradeModalProps {
   market: Market;
@@ -13,13 +10,13 @@ interface TradeModalProps {
 
 const AMOUNT_PRESETS = [10, 25, 50, 100];
 
+type TradeState = 'idle' | 'signing' | 'submitting' | 'success' | 'error';
+
 export function TradeModal({ market, side, onClose }: TradeModalProps) {
   const [amount, setAmount] = useState<string>('25');
   const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
-  const [insight, setInsight] = useState<Insight | null>(null);
-  const [showSimulation, setShowSimulation] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [tradeState, setTradeState] = useState<TradeState>('idle');
+  const [tradeError, setTradeError] = useState<string | null>(null);
 
   useEffect(() => {
     getWalletState().then(setWalletState);
@@ -33,34 +30,14 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, []);
 
-  // Fetch AI insight for this market if available
-  useEffect(() => {
-    async function fetchInsight() {
-      try {
-        const settings = await getAISettings();
-        if (!settings.enabled) return;
-
-        const installId = await getInstallId();
-        const response = await api.insights.get(market.id, installId);
-        if (response.insight) {
-          setInsight(response.insight);
-        }
-      } catch (err) {
-        // Silently ignore — insight is optional
-        console.debug('[TradeModal] Could not fetch insight:', (err as Error).message);
-      }
-    }
-    fetchInsight();
-  }, [market.id]);
-
   const price = side === 'YES'
     ? parseFloat(market.yesPrice)
     : parseFloat(market.noPrice);
 
   const numericAmount = parseFloat(amount) || 0;
   const payout = price > 0 ? numericAmount / price : 0;
-
   const sidePct = Math.round(price * 100);
+  const isBusy = tradeState === 'signing' || tradeState === 'submitting';
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onClose();
@@ -73,30 +50,83 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
     }
   };
 
-  const handleConfirm = async (e: React.MouseEvent) => {
+  const handleConfirm = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (numericAmount <= 0) return;
-    setSubmitError(null);
-    setSubmitting(true);
-    try {
-      const outcomeId = side === 'YES' ? market.yesTokenId : market.noTokenId;
-      await sendMessage<{ id: string; status: string }>({
-        type: 'PLACE_BET',
-        payload: {
-          marketId: market.id,
-          side: side === 'YES' ? 'yes' : 'no',
-          amount: amount.trim() || String(numericAmount),
-          price,
-          outcomeId: outcomeId || market.id,
-        },
-      });
-      onClose();
-    } catch (err) {
-      setSubmitError((err as Error).message);
-    } finally {
-      setSubmitting(false);
+    console.log('[Taurus:TradeModal] handleConfirm called');
+    console.log('[Taurus:TradeModal] walletState:', walletState);
+    console.log('[Taurus:TradeModal] isBusy:', isBusy);
+
+    if (!walletState.address || isBusy) {
+      console.log('[Taurus:TradeModal] Early return - no address or busy');
+      return;
     }
+
+    const tokenId = side === 'YES' ? market.yesTokenId : market.noTokenId;
+    console.log('[Taurus:TradeModal] tokenId:', tokenId);
+    console.log('[Taurus:TradeModal] price:', price);
+    console.log('[Taurus:TradeModal] numericAmount:', numericAmount);
+
+    setTradeState('signing');
+    setTradeError(null);
+
+    const payload = {
+      tokenId,
+      price,
+      amount: numericAmount,
+      address: walletState.address,
+    };
+    console.log('[Taurus:TradeModal] Sending SIGN_AND_TRADE message with payload:', payload);
+
+    // Network check happens in the background (reads live eth_chainId from MetaMask)
+    chrome.runtime.sendMessage(
+      {
+        type: 'SIGN_AND_TRADE',
+        payload,
+      },
+      (response: { success: boolean; data?: unknown; error?: string } | undefined) => {
+        console.log('[Taurus:TradeModal] Received response:', response);
+        console.log('[Taurus:TradeModal] chrome.runtime.lastError:', chrome.runtime.lastError);
+
+        if (chrome.runtime.lastError) {
+          console.error('[Taurus:TradeModal] lastError:', chrome.runtime.lastError);
+          setTradeState('error');
+          setTradeError(chrome.runtime.lastError.message ?? 'Extension error');
+          return;
+        }
+        if (response?.success) {
+          console.log('[Taurus:TradeModal] Trade successful!');
+          setTradeState('success');
+          // Save position locally so sidecar reflects the trade immediately
+          const newPosition = {
+            id: `local-${tokenId}-${Date.now()}`,
+            marketId: market.id,
+            marketQuestion: market.question,
+            outcomeId: tokenId,
+            outcomeName: side,
+            shares: String(numericAmount / price),
+            avgPrice: price,
+            currentPrice: price,
+            pnl: 0,
+            pnlPercent: 0,
+          };
+          chrome.storage.local.get(['localPositions'], (res) => {
+            const existing: unknown[] = res.localPositions ?? [];
+            chrome.storage.local.set({ localPositions: [...existing, newPosition] });
+          });
+        } else {
+          console.error('[Taurus:TradeModal] Trade failed:', response?.error);
+          setTradeState('error');
+          setTradeError(response?.error ?? 'Trade failed');
+        }
+      }
+    );
+  };
+
+  const confirmLabel = () => {
+    if (tradeState === 'signing') return 'Waiting for signature...';
+    if (tradeState === 'submitting') return 'Submitting...';
+    return `Confirm ${side}`;
   };
 
   return (
@@ -122,7 +152,16 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
               Connect your wallet to place real trades.
             </p>
             <p className="wallet-gate-hint">
-              Open the Taurus popup to connect MetaMask.
+              Open the PolyOverlay popup to connect MetaMask.
+            </p>
+          </div>
+        ) : tradeState === 'success' ? (
+          <div className="wallet-gate">
+            <p className="wallet-gate-message" style={{ color: '#00ba7c' }}>
+              Order submitted successfully!
+            </p>
+            <p className="wallet-gate-hint">
+              Check your positions in the side panel.
             </p>
           </div>
         ) : (
@@ -134,6 +173,14 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
               </div>
             )}
 
+            {tradeState === 'error' && tradeError && (
+              <div className="wallet-gate" style={{ marginBottom: '8px' }}>
+                <p className="wallet-gate-message" style={{ color: '#f4212e', fontSize: '12px' }}>
+                  {tradeError}
+                </p>
+              </div>
+            )}
+
             <div className="amount-section">
               <span className="section-label">Amount</span>
               <div className="preset-row">
@@ -142,6 +189,7 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
                     key={preset}
                     className={`preset-button ${numericAmount === preset ? 'active' : ''}`}
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAmount(String(preset)); }}
+                    disabled={isBusy}
                   >
                     {preset}
                   </button>
@@ -155,6 +203,7 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
                   value={amount}
                   onChange={handleAmountChange}
                   placeholder="0"
+                  disabled={isBusy}
                 />
                 <span className="currency-label">USDC</span>
               </div>
@@ -165,63 +214,12 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
               <span className="payout-value">${payout.toFixed(2)}</span>
             </div>
 
-            {insight && (
-              <div className="ai-simulation-section">
-                <button
-                  className="simulation-toggle"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowSimulation(!showSimulation); }}
-                >
-                  <span className="simulation-icon">🤖</span>
-                  AI Analysis Available
-                  <span className="simulation-arrow">{showSimulation ? '▲' : '▼'}</span>
-                </button>
-
-                {showSimulation && (
-                  <div className="simulation-content">
-                    <div className="simulation-summary">
-                      {insight.summary}
-                    </div>
-                    <div className="simulation-stats">
-                      <div className="simulation-stat">
-                        <span className="simulation-stat-label">Sentiment</span>
-                        <span className={`simulation-stat-value ${insight.sentiment}`}>
-                          {insight.sentiment.toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="simulation-stat">
-                        <span className="simulation-stat-label">Expected shift</span>
-                        <span className={`simulation-stat-value ${insight.consensusShift >= 0 ? 'bullish' : 'bearish'}`}>
-                          {insight.consensusShift >= 0 ? '+' : ''}{Math.round(insight.consensusShift * 100)}%
-                        </span>
-                      </div>
-                      <div className="simulation-stat">
-                        <span className="simulation-stat-label">Based on</span>
-                        <span className="simulation-stat-value">{insight.tweetCount} tweets</span>
-                      </div>
-                    </div>
-                    {insight.riskFlags.length > 0 && (
-                      <div className="simulation-risks">
-                        {insight.riskFlags.map((flag, idx) => (
-                          <span key={idx} className="risk-flag">⚠ {flag}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {submitError && (
-              <div className="submit-error" style={{ color: 'var(--color-error, #e74c3c)', fontSize: '12px', marginBottom: '8px' }}>
-                {submitError}
-              </div>
-            )}
             <button
               className={`confirm-button ${side === 'YES' ? 'yes' : 'no'}`}
               onClick={handleConfirm}
-              disabled={numericAmount <= 0 || submitting}
+              disabled={numericAmount <= 0 || isBusy}
             >
-              {submitting ? 'Submitting…' : `Confirm ${side}`}
+              {confirmLabel()}
             </button>
           </>
         )}

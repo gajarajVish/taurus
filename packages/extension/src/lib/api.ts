@@ -1,13 +1,5 @@
 // API client for communicating with the backend
-import type {
-  Market,
-  MatchResponse,
-  RecordViewRequest,
-  RecordViewResponse,
-  GetInsightResponse,
-  Insight,
-  AIInsightsSettings,
-} from '@taurus/types';
+import type { Market, MatchResponse, Position } from '@polyoverlay/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -56,32 +48,11 @@ export const api = {
 
   // Positions
   positions: {
-    list: () => request<unknown[]>('/api/positions'),
+    list: (address: string) => request<Position[]>(`/api/positions?address=${encodeURIComponent(address)}`),
   },
 
   // Trades
   trades: {
-    submit: (trade: unknown) => request<unknown>('/api/trades', { method: 'POST', body: trade }),
-  },
-
-  // Tweet view recording (for AI analysis)
-  tweets: {
-    recordView: (data: RecordViewRequest) =>
-      request<RecordViewResponse>('/api/tweets/view', { method: 'POST', body: data }),
-  },
-
-  // AI Insights
-  insights: {
-    get: (marketId: string, installId: string) =>
-      request<GetInsightResponse>(`/api/insights/${marketId}?installId=${encodeURIComponent(installId)}`),
-    getAll: (installId: string) =>
-      request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
-    getSettings: (installId: string) =>
-      request<AIInsightsSettings>(`/api/insights/settings?installId=${encodeURIComponent(installId)}`),
-    updateSettings: (installId: string, settings: Partial<AIInsightsSettings>) =>
-      request<AIInsightsSettings>('/api/insights/settings', {
-        method: 'PUT',
-        body: { installId, settings },
-      }),
+    submit: (trade: unknown) => request<{ success: boolean; data?: unknown; error?: string }>('/api/trades', { method: 'POST', body: trade }),
   },
 };

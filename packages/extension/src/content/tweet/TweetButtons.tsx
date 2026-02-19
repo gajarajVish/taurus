@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Market } from '@taurus/types';
+import type { Market } from '@polyoverlay/types';
 import { TradeModal } from './TradeModal';
 
 interface TweetButtonsProps {

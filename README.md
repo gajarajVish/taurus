@@ -1,4 +1,4 @@
-# Taurus
+# PolyOverlay
 
 A Chrome extension that brings Polymarket data to X.com (Twitter).
 
@@ -6,7 +6,7 @@ This PRD focuses on the core value proposition: contextual prediction markets in
 
 ---
 
-## Product Requirements Document (PRD): Taurus v1.0
+## Product Requirements Document (PRD): PolyOverlay v1.0
 
 ### 1. Problem & Vision
 
@@ -74,8 +74,8 @@ This PRD focuses on the core value proposition: contextual prediction markets in
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/taurus.git
-cd taurus
+git clone https://github.com/yourusername/polyoverlay.git
+cd polyoverlay
 
 # Install dependencies
 npm install

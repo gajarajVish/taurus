@@ -1,5 +1,5 @@
 {
-  "name": "@taurus/extension",
+  "name": "@polyoverlay/extension",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@taurus/types": "*",
+    "@polyoverlay/types": "*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
