@@ -8,7 +8,9 @@
     "activeTab",
     "tabs",
     "sidePanel",
-    "scripting"
+    "scripting",
+    "alarms",
+    "notifications"
   ],
   "host_permissions": [
     "https://x.com/*",

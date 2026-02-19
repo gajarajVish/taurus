@@ -565,3 +565,35 @@ export async function isOGAvailable(): Promise<boolean> {
     return false;
   }
 }
+
+// Used by automation monitor for exit signal evaluation via 0G
+export async function evaluateExitSignal(prompt: string): Promise<string> {
+  const broker = await getBroker();
+  const service = await findChatService(broker);
+  if (!service) throw new Error('No chat service');
+
+  const { endpoint, model } = await broker.inference.getServiceMetadata(service.provider);
+  const headers = await broker.inference.getRequestHeaders(service.provider, prompt);
+
+  const response = await fetch(`${endpoint}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: 'You are a trading automation assistant for prediction markets. Evaluate exit signals and respond with JSON only.' },
+        { role: 'user', content: prompt },
+      ],
+      model,
+      temperature: 0.2,
+      max_tokens: 300,
+    }),
+  });
+
+  if (!response.ok) throw new Error(`0G inference failed: ${response.status}`);
+
+  const result = await response.json() as { choices: Array<{ message: { content: string } }> };
+  const content = result.choices?.[0]?.message?.content;
+  if (!content) throw new Error('Empty 0G response');
+
+  return content;
+}

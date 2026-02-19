@@ -78,3 +78,63 @@ export interface PortfolioAnalysisRequest {
 export interface PortfolioAnalysisResponse {
   analysis: PortfolioAnalysis | null;
 }
+
+// ── Auto-Exit Automation ────────────────────────────────────────────────────
+
+export interface AutoExitRule {
+  id: string;
+  type: 'pnl_gain' | 'pnl_loss' | 'risk_score' | 'price_target';
+  threshold: number;
+  action: 'exit_full' | 'exit_half';
+  enabled: boolean;
+}
+
+export interface AutoExitConfig {
+  enabled: boolean;
+  rules: AutoExitRule[];
+  requireConfirmation: boolean;
+}
+
+export const DEFAULT_AUTO_EXIT_CONFIG: AutoExitConfig = {
+  enabled: false,
+  rules: [
+    { id: 'gain-20', type: 'pnl_gain', threshold: 0.20, action: 'exit_full', enabled: true },
+    { id: 'loss-15', type: 'pnl_loss', threshold: -0.15, action: 'exit_half', enabled: true },
+    { id: 'risk-high', type: 'risk_score', threshold: 0.85, action: 'exit_full', enabled: false },
+  ],
+  requireConfirmation: true,
+};
+
+export interface PendingExit {
+  positionId: string;
+  marketId: string;
+  marketQuestion: string;
+  tokenId: string;
+  side: 'yes' | 'no';
+  shares: string;
+  currentPrice: number;
+  triggeredRule: AutoExitRule;
+  aiReasoning: string;
+  aiConfidence: number;
+  timestamp: string;
+}
+
+export interface AutoSyncRequest {
+  installId: string;
+  positions: Array<{
+    id: string;
+    marketId: string;
+    marketQuestion: string;
+    tokenId: string;
+    side: 'yes' | 'no';
+    shares: string;
+    avgPrice: number;
+    currentPrice: number;
+    pnlPercent: number;
+  }>;
+  config: AutoExitConfig;
+}
+
+export interface AutoSyncResponse {
+  pendingExits: PendingExit[];
+}

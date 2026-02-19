@@ -1,5 +1,6 @@
 // Chrome storage helpers
-import type { AIInsightsSettings } from '@taurus/types';
+import type { AIInsightsSettings, AutoExitConfig, PendingExit } from '@taurus/types';
+import { DEFAULT_AUTO_EXIT_CONFIG } from '@taurus/types';
 
 export interface StorageData {
   overlayEnabled: boolean;
@@ -7,6 +8,8 @@ export interface StorageData {
   authToken?: string;
   installId?: string;
   aiSettings?: AIInsightsSettings;
+  autoExitConfig?: AutoExitConfig;
+  pendingExits?: PendingExit[];
 }
 
 const STORAGE_DEFAULTS: StorageData = {
@@ -65,4 +68,31 @@ export async function setAISettings(settings: Partial<AIInsightsSettings>): Prom
   const updated = { ...current, ...settings };
   await setStorage({ aiSettings: updated });
   return updated;
+}
+
+// ── Auto-Exit Config ────────────────────────────────────────────────────────
+
+export async function getAutoExitConfig(): Promise<AutoExitConfig> {
+  const storage = await getStorage();
+  return storage.autoExitConfig ?? DEFAULT_AUTO_EXIT_CONFIG;
+}
+
+export async function setAutoExitConfig(config: AutoExitConfig): Promise<void> {
+  await setStorage({ autoExitConfig: config });
+}
+
+// ── Pending Exits ───────────────────────────────────────────────────────────
+
+export async function getPendingExits(): Promise<PendingExit[]> {
+  const storage = await getStorage();
+  return storage.pendingExits ?? [];
+}
+
+export async function setPendingExits(exits: PendingExit[]): Promise<void> {
+  await setStorage({ pendingExits: exits });
+}
+
+export async function dismissPendingExit(positionId: string): Promise<void> {
+  const exits = await getPendingExits();
+  await setPendingExits(exits.filter((e) => e.positionId !== positionId));
 }

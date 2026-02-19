@@ -6,6 +6,7 @@ import { positionsPlugin } from './routes/positions.js';
 import { tradesPlugin } from './routes/trades.js';
 import { insightsPlugin } from './routes/insights.js';
 import { tweetsPlugin } from './routes/tweets.js';
+import { automationPlugin } from './routes/automation.js';
 import { startPeriodicScan } from './services/insights/aggregator.js';
 
 export async function createServer() {
@@ -40,6 +41,9 @@ export async function createServer() {
 
   // Tweets — tweet view recording for insight aggregation
   await server.register(tweetsPlugin);
+
+  // Automation — AI-powered auto-exit monitoring
+  await server.register(automationPlugin);
 
   // Start proactive 0G market scanning
   startPeriodicScan();

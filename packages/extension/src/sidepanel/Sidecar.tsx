@@ -6,12 +6,14 @@ import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
 import { InsightsTab } from './components/InsightsTab';
 import { PortfolioTab } from './components/PortfolioTab';
+import { PendingExitBanner } from './components/PendingExitBanner';
 import { SellModal } from './components/SellModal';
 import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
 import { BuyModal } from './components/BuyModal';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
-import type { Position, PortfolioPosition } from '@taurus/types';
+import { getPendingExits, dismissPendingExit, getInstallId } from '../lib/storage';
+import type { Position, PortfolioPosition, PendingExit } from '@taurus/types';
 
 export interface DisplayPosition {
     id: string;
@@ -85,15 +87,18 @@ export function Sidecar() {
     const [pnlHistory, setPnlHistory] = useState<number[]>([]);
     const [sellPosition, setSellPosition] = useState<DisplayPosition | null>(null);
     const [buySelection, setBuySelection] = useState<BuySelection | null>(null);
+    const [pendingExits, setPendingExits] = useState<PendingExit[]>([]);
     const initialLoadDone = useRef(false);
 
     useEffect(() => {
         getWalletState().then(setWalletState);
-        // Load locally saved trades + PnL history
         chrome.storage.local.get(['localPositions', 'pnlHistory'], (res) => {
             setLocalPositions((res.localPositions as Position[]) ?? []);
             setPnlHistory((res.pnlHistory as number[]) ?? []);
         });
+
+        // Load pending exits
+        getPendingExits().then(setPendingExits);
 
         const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
             if (area === 'local' && changes.walletState) {
@@ -102,9 +107,24 @@ export function Sidecar() {
             if (area === 'local' && changes.localPositions) {
                 setLocalPositions((changes.localPositions.newValue as Position[]) ?? []);
             }
+            if (area === 'local' && changes.pendingExits) {
+                setPendingExits((changes.pendingExits.newValue as PendingExit[]) ?? []);
+            }
         };
         chrome.storage.onChanged.addListener(listener);
-        return () => chrome.storage.onChanged.removeListener(listener);
+
+        // Listen for background messages about pending exits
+        const msgListener = (message: { type: string; pendingExits?: PendingExit[] }) => {
+            if (message.type === 'PENDING_EXITS_UPDATED' && message.pendingExits) {
+                setPendingExits(message.pendingExits);
+            }
+        };
+        chrome.runtime.onMessage.addListener(msgListener);
+
+        return () => {
+            chrome.storage.onChanged.removeListener(listener);
+            chrome.runtime.onMessage.removeListener(msgListener);
+        };
     }, []);
 
     // Refresh real positions from the backend
@@ -248,6 +268,40 @@ export function Sidecar() {
         chrome.runtime.sendMessage({ type: 'DISCONNECT_WALLET' });
     };
 
+    const handleConfirmExit = (exit: PendingExit) => {
+        if (!walletState.address) return;
+
+        // Pre-fill the sell modal with position data from the pending exit
+        const sellPos: DisplayPosition = {
+            id: exit.positionId,
+            marketId: exit.marketId,
+            outcomeId: exit.tokenId,
+            outcomeName: exit.side === 'yes' ? 'Yes' : 'No',
+            marketQuestion: exit.marketQuestion,
+            side: exit.side,
+            size: `$${(parseFloat(exit.shares) * exit.currentPrice).toFixed(2)}`,
+            shares: exit.shares,
+            avgPrice: exit.currentPrice,
+            currentPrice: exit.currentPrice,
+            pnlPercent: 0,
+        };
+        setSellPosition(sellPos);
+
+        // Dismiss from pending exits
+        handleDismissExit(exit.positionId);
+    };
+
+    const handleDismissExit = async (positionId: string) => {
+        await dismissPendingExit(positionId);
+        setPendingExits((prev) => prev.filter((e) => e.positionId !== positionId));
+        try {
+            const installId = await getInstallId();
+            await api.automation.dismiss(installId, positionId);
+        } catch {
+            // Best-effort backend dismissal
+        }
+    };
+
     return (
         <div className="sidecar-container">
             <Header
@@ -265,6 +319,14 @@ export function Sidecar() {
             />
 
             <div className="sidecar-content">
+                {pendingExits.length > 0 && (
+                    <PendingExitBanner
+                        exits={pendingExits}
+                        onConfirm={handleConfirmExit}
+                        onDismiss={handleDismissExit}
+                    />
+                )}
+
                 {activeTab === 'dashboard' && (
                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <MetricsCard

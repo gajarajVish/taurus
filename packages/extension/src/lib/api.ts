@@ -1,5 +1,5 @@
 // API client for communicating with the backend
-import type { Market, MatchResponse, Position, GetInsightResponse, Insight, RecordViewRequest, RecordViewResponse, PortfolioAnalysisRequest, PortfolioAnalysisResponse } from '@taurus/types';
+import type { Market, MatchResponse, Position, GetInsightResponse, Insight, RecordViewRequest, RecordViewResponse, PortfolioAnalysisRequest, PortfolioAnalysisResponse, AutoExitConfig, AutoSyncRequest, AutoSyncResponse, PendingExit } from '@taurus/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -75,5 +75,17 @@ export const api = {
       request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
     analyzePortfolio: (body: PortfolioAnalysisRequest) =>
       request<PortfolioAnalysisResponse>('/api/insights/portfolio', { method: 'POST', body }),
+  },
+
+  // Automation
+  automation: {
+    sync: (body: AutoSyncRequest) =>
+      request<AutoSyncResponse>('/api/automation/sync', { method: 'POST', body }),
+    updateConfig: (installId: string, config: AutoExitConfig) =>
+      request<{ success: boolean }>('/api/automation/config', { method: 'PUT', body: { installId, config } }),
+    getPending: (installId: string) =>
+      request<{ pendingExits: PendingExit[] }>(`/api/automation/pending?installId=${encodeURIComponent(installId)}`),
+    dismiss: (installId: string, positionId: string) =>
+      request<{ success: boolean }>('/api/automation/dismiss', { method: 'POST', body: { installId, positionId } }),
   },
 };

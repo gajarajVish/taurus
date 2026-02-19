@@ -1,16 +1,158 @@
 // Background service worker for Taurus extension
+import type { AutoExitConfig, PendingExit, Position, AutoSyncRequest } from '@taurus/types';
+import { DEFAULT_AUTO_EXIT_CONFIG } from '@taurus/types';
+
+const API_BASE = 'http://localhost:3000';
+const ALARM_NAME = 'check-auto-exits';
 
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Taurus extension installed');
 
-  // Set default settings
-  chrome.storage.local.set({
-    overlayEnabled: true,
+  chrome.storage.local.set({ overlayEnabled: true });
+
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch((error) => console.error(error));
+
+  // Start the auto-exit polling alarm (every 15s = 0.25 min)
+  chrome.alarms.create(ALARM_NAME, { periodInMinutes: 0.25 });
+});
+
+// Ensure alarm exists even after service worker restart
+chrome.alarms.get(ALARM_NAME, (existing) => {
+  if (!existing) {
+    chrome.alarms.create(ALARM_NAME, { periodInMinutes: 0.25 });
+  }
+});
+
+// ── Auto-Exit Alarm Handler ─────────────────────────────────────────────────
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== ALARM_NAME) return;
+
+  try {
+    const storage = await chrome.storage.local.get([
+      'autoExitConfig',
+      'installId',
+      'walletState',
+      'localPositions',
+    ]);
+
+    const config: AutoExitConfig = storage.autoExitConfig ?? DEFAULT_AUTO_EXIT_CONFIG;
+    if (!config.enabled) return;
+
+    const installId: string | undefined = storage.installId;
+    if (!installId) return;
+
+    const walletState = storage.walletState as { connected: boolean; address: string | null } | undefined;
+    const localPositions: Position[] = storage.localPositions ?? [];
+    const isGuest = !walletState?.connected;
+
+    // Build position list for sync
+    const syncPositions: AutoSyncRequest['positions'] = [];
+
+    // Add local (guest) positions
+    for (const p of localPositions) {
+      syncPositions.push({
+        id: p.id,
+        marketId: p.marketId,
+        marketQuestion: p.marketQuestion,
+        tokenId: p.outcomeId,
+        side: p.outcomeName.toLowerCase() === 'yes' ? 'yes' : 'no',
+        shares: p.shares,
+        avgPrice: p.avgPrice,
+        currentPrice: p.currentPrice,
+        pnlPercent: p.pnlPercent,
+      });
+    }
+
+    // Fetch real positions if wallet connected
+    if (walletState?.connected && walletState.address) {
+      try {
+        const resp = await fetch(`${API_BASE}/api/positions?address=${encodeURIComponent(walletState.address)}`);
+        if (resp.ok) {
+          const realPositions: Position[] = await resp.json();
+          for (const p of realPositions) {
+            syncPositions.push({
+              id: p.id,
+              marketId: p.marketId,
+              marketQuestion: p.marketQuestion,
+              tokenId: p.outcomeId,
+              side: p.outcomeName.toLowerCase() === 'yes' ? 'yes' : 'no',
+              shares: p.shares,
+              avgPrice: p.avgPrice,
+              currentPrice: p.currentPrice,
+              pnlPercent: p.pnlPercent,
+            });
+          }
+        }
+      } catch {
+        // Backend may be down — skip this cycle
+      }
+    }
+
+    if (syncPositions.length === 0) return;
+
+    // Sync with backend and get pending exits
+    const syncResp = await fetch(`${API_BASE}/api/automation/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ installId, positions: syncPositions, config }),
+    });
+
+    if (!syncResp.ok) return;
+
+    const { pendingExits }: { pendingExits: PendingExit[] } = await syncResp.json();
+    if (pendingExits.length === 0) return;
+
+    if (isGuest) {
+      // Guest mode: auto-execute exits by removing from localPositions
+      handleGuestExits(pendingExits, localPositions);
+    } else {
+      // Authenticated mode: store pending exits for UI notification
+      await chrome.storage.local.set({ pendingExits });
+      // Notify sidepanel if open
+      chrome.runtime.sendMessage({ type: 'PENDING_EXITS_UPDATED', pendingExits }).catch(() => {});
+    }
+  } catch (err) {
+    console.warn('[Taurus:AutoExit] Alarm handler error:', (err as Error).message);
+  }
+});
+
+function handleGuestExits(exits: PendingExit[], localPositions: Position[]): void {
+  const exitIds = new Set(exits.map((e) => e.positionId));
+
+  const updated = localPositions.filter((p) => {
+    if (!exitIds.has(p.id)) return true;
+
+    const exit = exits.find((e) => e.positionId === p.id);
+    if (!exit) return true;
+
+    if (exit.triggeredRule.action === 'exit_full') {
+      console.log(`[Taurus:AutoExit] Guest auto-exit (full): ${p.marketQuestion}`);
+      return false; // Remove position
+    }
+
+    // exit_half: reduce shares by half
+    console.log(`[Taurus:AutoExit] Guest auto-exit (half): ${p.marketQuestion}`);
+    const halfShares = parseFloat(p.shares) / 2;
+    (p as Position).shares = halfShares.toString();
+    return true;
   });
 
-  // Popup is the primary action; side panel opened from within the popup
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch((error) => console.error(error));
-});
+  chrome.storage.local.set({ localPositions: updated });
+
+  // Dismiss processed exits on the backend
+  chrome.storage.local.get(['installId'], (res) => {
+    const installId = res.installId as string | undefined;
+    if (!installId) return;
+    for (const exit of exits) {
+      fetch(`${API_BASE}/api/automation/dismiss`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installId, positionId: exit.positionId }),
+      }).catch(() => {});
+    }
+  });
+}
 
 // ── Shared signing helper ───────────────────────────────────────────────────
 // Injects into a page's MAIN world to access window.ethereum for EIP-712 signing,
