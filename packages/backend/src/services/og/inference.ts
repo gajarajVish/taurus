@@ -1,5 +1,10 @@
-import { createZGComputeNetworkBroker, type ZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
+import { createRequire } from 'module';
 import { ethers } from 'ethers';
+
+// Use CommonJS require to avoid Node.js v22 ESM compatibility issues with @0glabs/0g-serving-broker
+const require = createRequire(import.meta.url);
+const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
+type ZGComputeNetworkBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 import { config } from '../../config/index.js';
 import type { Market, SentimentType } from '@taurus/types';
 

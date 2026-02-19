@@ -1,11 +1,14 @@
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { createRequire } from 'module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
 
-import { createZGComputeNetworkBroker } from '@0glabs/0g-serving-broker';
+// Use CommonJS require to avoid Node.js v22 ESM compatibility issues with @0glabs/0g-serving-broker
+const require = createRequire(import.meta.url);
+const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
 import { ethers } from 'ethers';
 
 async function main() {
