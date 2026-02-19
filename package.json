@@ -10,7 +10,7 @@
     "dev": "npm run dev --workspaces --if-present",
     "dev:ext": "npm run dev -w packages/extension",
     "dev:api": "npm run dev -w packages/backend",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build -w packages/shared/types && npm run build --workspaces --if-present",
     "build:ext": "npm run build -w packages/extension",
     "type-check": "npm run type-check --workspaces --if-present"
   },

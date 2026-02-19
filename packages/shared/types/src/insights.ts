@@ -60,11 +60,14 @@ export interface PortfolioAnalysis {
   hedgingSuggestions: string[];
   trends: string[];
   diversificationScore: number;   // 0-1
+  riskExplanation: string;        // Why this risk level was assigned
+  diversificationExplanation: string; // Why this diversification score was given
   timestamp: string;
 }
 
 export interface PortfolioAnalysisRequest {
   positions: PortfolioPosition[];
+  insights?: Insight[];           // Cached tweet sentiment insights for context
 }
 
 export interface PortfolioAnalysisResponse {

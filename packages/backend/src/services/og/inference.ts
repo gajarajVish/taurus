@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
 type ZGComputeNetworkBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 import { config } from '../../config/index.js';
-import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis } from '@taurus/types';
+import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis, Insight } from '@taurus/types';
 
 export interface SentimentResult {
   sentiment: SentimentType;
@@ -321,26 +321,37 @@ export async function getOGStatus(): Promise<OGStatus> {
 
 // ── Portfolio analysis ────────────────────────────────────────────────────
 
-function buildPortfolioPrompt(positions: PortfolioPosition[]): string {
+function buildPortfolioPrompt(positions: PortfolioPosition[], insights: Insight[] = []): string {
   const positionsFormatted = positions.map((p, i) => {
     const direction = p.side === 'yes' ? 'YES' : 'NO';
     const pnlSign = p.pnlPercent >= 0 ? '+' : '';
     return `${i + 1}. "${p.marketQuestion}" — ${direction} @ $${p.size.toFixed(2)}, avg price ${p.avgPrice.toFixed(2)}, current ${p.currentPrice.toFixed(2)}, PnL: ${pnlSign}${p.pnlPercent.toFixed(1)}%`;
   }).join('\n');
 
+  let insightsSection = '';
+  if (insights.length > 0) {
+    const insightsFormatted = insights.map((ins) => {
+      const flags = ins.riskFlags.length > 0 ? ` Flags: ${ins.riskFlags.join(', ')}.` : '';
+      return `- "${ins.marketId}": ${ins.sentiment} sentiment (${Math.round(ins.score * 100)}% confidence, ${ins.tweetCount} tweets). ${ins.summary}${flags}`;
+    }).join('\n');
+    insightsSection = `\n\nTweet Sentiment Insights (from live X/Twitter data):\n${insightsFormatted}`;
+  }
+
   return `Analyze this prediction market portfolio for risk management:
 
 Positions (${positions.length} total):
-${positionsFormatted}
+${positionsFormatted}${insightsSection}
 
 Provide a JSON response with this exact structure:
 {
   "summary": "<2-3 sentence portfolio overview>",
   "overallRisk": "low" | "medium" | "high",
+  "riskExplanation": "<1-2 sentences explaining WHY this risk level was assigned, referencing specific portfolio characteristics and tweet sentiment signals if available>",
   "correlationWarnings": ["<warnings about correlated positions that move together>"],
   "hedgingSuggestions": ["<specific actionable hedging ideas>"],
   "trends": ["<common themes or sector concentrations>"],
-  "diversificationScore": <number 0-1, 1 = well diversified>
+  "diversificationScore": <number 0-1, 1 = well diversified>,
+  "diversificationExplanation": "<1-2 sentences explaining WHY this diversification score was given, referencing which categories are represented and any concentration>"
 }
 
 Rules:
@@ -349,6 +360,8 @@ Rules:
 - Suggest specific hedges: "Consider taking NO on X to hedge your YES on Y"
 - Note if PnL distribution is skewed (all winning or all losing)
 - diversificationScore: 0 = all positions highly correlated, 1 = well diversified across topics
+- riskExplanation: cite tweet sentiment data if present (e.g. "bearish sentiment on 2 of your markets adds downside risk")
+- diversificationExplanation: mention how many distinct topics/sectors appear and where concentration lies
 
 Respond ONLY with valid JSON, no other text.`;
 }
@@ -362,6 +375,7 @@ function parsePortfolioResponse(response: string): PortfolioAnalysis {
   return {
     summary: typeof parsed.summary === 'string' ? parsed.summary : 'Portfolio analysis completed.',
     overallRisk: ['low', 'medium', 'high'].includes(parsed.overallRisk) ? parsed.overallRisk : 'medium',
+    riskExplanation: typeof parsed.riskExplanation === 'string' ? parsed.riskExplanation : '',
     correlationWarnings: Array.isArray(parsed.correlationWarnings)
       ? parsed.correlationWarnings.filter((s: unknown) => typeof s === 'string')
       : [],
@@ -374,11 +388,12 @@ function parsePortfolioResponse(response: string): PortfolioAnalysis {
     diversificationScore: typeof parsed.diversificationScore === 'number'
       ? Math.max(0, Math.min(1, parsed.diversificationScore))
       : 0.5,
+    diversificationExplanation: typeof parsed.diversificationExplanation === 'string' ? parsed.diversificationExplanation : '',
     timestamp: new Date().toISOString(),
   };
 }
 
-function analyzePortfolioLocal(positions: PortfolioPosition[]): PortfolioAnalysis {
+function analyzePortfolioLocal(positions: PortfolioPosition[], insights: Insight[] = []): PortfolioAnalysis {
   const topics = positions.map((p) => p.marketQuestion.toLowerCase());
 
   const trends: string[] = [];
@@ -428,26 +443,55 @@ function analyzePortfolioLocal(positions: PortfolioPosition[]): PortfolioAnalysi
   if (correlationWarnings.length >= 2 || maxConcentration > 0.7) overallRisk = 'high';
   else if (correlationWarnings.length === 0 && diversificationScore > 0.6) overallRisk = 'low';
 
+  // Build risk explanation from portfolio structure and available sentiment insights
+  const riskReasons: string[] = [];
+  if (correlationWarnings.length >= 2) riskReasons.push(`${correlationWarnings.length} correlation warnings detected`);
+  if (maxConcentration > 0.7) riskReasons.push(`${Math.round(maxConcentration * 100)}% of positions concentrated in one sector`);
+  if (correlationWarnings.length === 0 && diversificationScore > 0.6) riskReasons.push('positions are spread across multiple uncorrelated sectors');
+  const bearishInsights = insights.filter((i) => i.sentiment === 'bearish');
+  const bullishInsights = insights.filter((i) => i.sentiment === 'bullish');
+  if (bearishInsights.length > 0) riskReasons.push(`tweet sentiment is bearish on ${bearishInsights.length} of your markets`);
+  if (bullishInsights.length > 0 && bearishInsights.length === 0) riskReasons.push(`tweet sentiment is bullish on ${bullishInsights.length} of your markets`);
+  const riskExplanation = riskReasons.length > 0
+    ? `Risk is ${overallRisk} because ${riskReasons.join(', ')}.`
+    : `Risk is ${overallRisk} based on portfolio composition across ${totalCategories} sector${totalCategories !== 1 ? 's' : ''}.`;
+
+  // Build diversification explanation
+  const categoryList = Object.keys(categoryCounts);
+  const topCategory = Object.entries(categoryCounts).sort(([, a], [, b]) => b - a)[0];
+  let diversificationExplanation: string;
+  if (categoryList.length >= 3) {
+    diversificationExplanation = `Well diversified across ${categoryList.length} sectors (${categoryList.join(', ')}), reducing correlation risk.`;
+  } else if (topCategory && topCategory[1] / positions.length > 0.6) {
+    diversificationExplanation = `${Math.round((topCategory[1] / positions.length) * 100)}% of positions are in ${topCategory[0]}, creating concentration risk. Spreading into other sectors would improve this score.`;
+  } else {
+    diversificationExplanation = `Positions span ${categoryList.length > 0 ? categoryList.join(' and ') : 'mixed topics'} with moderate spread across sectors.`;
+  }
+
   return {
     summary: `Portfolio has ${positions.length} positions across ${totalCategories} categories. ${correlationWarnings.length > 0 ? 'Correlation risks detected.' : 'Moderate diversification.'}`,
     overallRisk,
+    riskExplanation,
     correlationWarnings,
     hedgingSuggestions,
     trends,
     diversificationScore: Math.round(diversificationScore * 100) / 100,
+    diversificationExplanation,
     timestamp: new Date().toISOString(),
   };
 }
 
-export async function analyzePortfolio(positions: PortfolioPosition[]): Promise<PortfolioAnalysis> {
+export async function analyzePortfolio(positions: PortfolioPosition[], insights: Insight[] = []): Promise<PortfolioAnalysis> {
   if (positions.length === 0) {
     return {
       summary: 'No positions to analyze.',
       overallRisk: 'low',
+      riskExplanation: 'No positions in portfolio.',
       correlationWarnings: [],
       hedgingSuggestions: [],
       trends: [],
       diversificationScore: 1,
+      diversificationExplanation: 'No positions to assess.',
       timestamp: new Date().toISOString(),
     };
   }
@@ -459,7 +503,7 @@ export async function analyzePortfolio(positions: PortfolioPosition[]): Promise<
       if (!service) throw new Error('No chat service');
 
       const { endpoint, model } = await broker.inference.getServiceMetadata(service.provider);
-      const prompt = buildPortfolioPrompt(positions);
+      const prompt = buildPortfolioPrompt(positions, insights);
       const headers = await broker.inference.getRequestHeaders(service.provider, prompt);
 
       const response = await fetch(`${endpoint}/chat/completions`, {
@@ -489,7 +533,7 @@ export async function analyzePortfolio(positions: PortfolioPosition[]): Promise<
     }
   }
 
-  return analyzePortfolioLocal(positions);
+  return analyzePortfolioLocal(positions, insights);
 }
 
 export async function isOGAvailable(): Promise<boolean> {

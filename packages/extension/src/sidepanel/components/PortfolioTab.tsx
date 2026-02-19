@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { api } from '../../lib/api';
+import { getInstallId } from '../../lib/storage';
 import type { PortfolioAnalysis, PortfolioPosition } from '@taurus/types';
 
 interface PortfolioTabProps {
@@ -22,7 +23,9 @@ export function PortfolioTab({ positions }: PortfolioTabProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.insights.analyzePortfolio({ positions });
+      const installId = await getInstallId();
+      const { insights } = await api.insights.getAll(installId);
+      const res = await api.insights.analyzePortfolio({ positions, insights });
       setAnalysis(res.analysis);
     } catch (err) {
       setError('Failed to analyze portfolio');
@@ -93,6 +96,11 @@ export function PortfolioTab({ positions }: PortfolioTabProps) {
         </button>
       </div>
 
+      {/* Risk explanation */}
+      {analysis.riskExplanation ? (
+        <p className="ic-summary" style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginTop: '4px' }}>{analysis.riskExplanation}</p>
+      ) : null}
+
       {/* Summary */}
       <p className="ic-summary">{analysis.summary}</p>
 
@@ -104,6 +112,11 @@ export function PortfolioTab({ positions }: PortfolioTabProps) {
           <div className="ic-bar-fill" style={{ width: `${divPct}%`, background: 'var(--color-brand)' }} />
         </div>
       </div>
+
+      {/* Diversification explanation */}
+      {analysis.diversificationExplanation ? (
+        <p className="ic-summary" style={{ color: 'var(--color-text-secondary)', fontSize: '12px', marginTop: '2px' }}>{analysis.diversificationExplanation}</p>
+      ) : null}
 
       {/* Trends */}
       {analysis.trends.length > 0 && (
