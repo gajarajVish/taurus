@@ -1,0 +1,20 @@
+{
+  "name": "polyoverlay",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "packages/shared/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:ext": "npm run dev -w packages/extension",
+    "dev:api": "npm run dev -w packages/backend",
+    "build": "npm run build --workspaces --if-present",
+    "build:ext": "npm run build -w packages/extension",
+    "type-check": "npm run type-check --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
