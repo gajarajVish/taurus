@@ -113,5 +113,26 @@ export async function fetchMarket(conditionId: string): Promise<Market | null> {
   return found;
 }
 
+// Fresh single-market fetch — bypasses the full-market cache, uses a 30s TTL.
+// Used for position price updates where stale prices show 0% PnL.
+export async function fetchMarketFresh(conditionId: string): Promise<Market | null> {
+  const cacheKey = `markets:fresh:${conditionId}`;
+
+  const cached = getCached<Market>(cacheKey);
+  if (cached) return cached;
+
+  // Direct Gamma API call for this specific market
+  const raw = await fetchMarketRaw(conditionId);
+  if (!raw || raw.length === 0) {
+    // Fallback to the full list if Gamma's conditionId filter fails
+    return fetchMarket(conditionId);
+  }
+
+  const normalized = normalizeMarket(raw[0]);
+  // Short 30-second TTL for fresh price data
+  cache.set(cacheKey, { data: normalized, expiresAt: Date.now() + 30_000 });
+  return normalized;
+}
+
 // Alias for compatibility with insights aggregator
 export { fetchMarket as getMarket };

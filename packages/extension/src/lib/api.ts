@@ -42,6 +42,7 @@ export const api = {
       return request<Market[]>(`/api/markets${query ? '?' + query : ''}`);
     },
     get: (id: string) => request<Market>(`/api/markets/${id}`),
+    midpoint: (tokenId: string) => request<{ mid: string }>(`/api/markets/${tokenId}/price`),
     match: (tweetText: string) =>
       request<MatchResponse>('/api/markets/match', { method: 'POST', body: { tweetText } }),
   },

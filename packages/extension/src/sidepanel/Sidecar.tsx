@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { MetricsCard } from './components/MetricsCard';
 import { PositionsCard } from './components/PositionsCard';
@@ -6,15 +6,24 @@ import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
 import { InsightsTab } from './components/InsightsTab';
 import { PortfolioTab } from './components/PortfolioTab';
+import { SellModal } from './components/SellModal';
+import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
+import { BuyModal } from './components/BuyModal';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
 import type { Position, PortfolioPosition } from '@taurus/types';
 
-interface DisplayPosition {
+export interface DisplayPosition {
     id: string;
+    marketId: string;
+    outcomeId: string;
+    outcomeName: string;
     marketQuestion: string;
     side: 'yes' | 'no';
     size: string;
+    shares: string;
+    avgPrice: number;
+    currentPrice: number;
     pnlPercent: number;
 }
 
@@ -27,9 +36,15 @@ interface Metrics {
 function mapPosition(p: Position): DisplayPosition {
     return {
         id: p.id,
+        marketId: p.marketId,
+        outcomeId: p.outcomeId,
+        outcomeName: p.outcomeName,
         marketQuestion: p.marketQuestion,
         side: p.outcomeName.toLowerCase() === 'yes' ? 'yes' : 'no',
         size: `$${(parseFloat(p.shares) * p.avgPrice).toFixed(2)}`,
+        shares: p.shares,
+        avgPrice: p.avgPrice,
+        currentPrice: p.currentPrice,
         pnlPercent: p.pnlPercent,
     };
 }
@@ -37,7 +52,13 @@ function mapPosition(p: Position): DisplayPosition {
 function deriveMetrics(positions: Position[]): Metrics {
     const pnl = positions.reduce((sum, p) => sum + p.pnl, 0);
     const volume = positions.reduce((sum, p) => sum + parseFloat(p.shares) * p.avgPrice, 0);
-    return { pnl, volume: Math.round(volume), streak: 0 };
+    // Streak: consecutive positions with positive PnL
+    let streak = 0;
+    for (const p of positions) {
+        if (p.pnl > 0) streak++;
+        else break;
+    }
+    return { pnl, volume: Math.round(volume), streak };
 }
 
 function toPortfolioPositions(positions: Position[]): PortfolioPosition[] {
@@ -61,12 +82,17 @@ export function Sidecar() {
     const [positionsLoading, setPositionsLoading] = useState(false);
     const [positionsError, setPositionsError] = useState<string | null>(null);
     const [localPositions, setLocalPositions] = useState<Position[]>([]);
+    const [pnlHistory, setPnlHistory] = useState<number[]>([]);
+    const [sellPosition, setSellPosition] = useState<DisplayPosition | null>(null);
+    const [buySelection, setBuySelection] = useState<BuySelection | null>(null);
+    const initialLoadDone = useRef(false);
 
     useEffect(() => {
         getWalletState().then(setWalletState);
-        // Load locally saved trades
-        chrome.storage.local.get(['localPositions'], (res) => {
+        // Load locally saved trades + PnL history
+        chrome.storage.local.get(['localPositions', 'pnlHistory'], (res) => {
             setLocalPositions((res.localPositions as Position[]) ?? []);
+            setPnlHistory((res.pnlHistory as number[]) ?? []);
         });
 
         const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
@@ -81,30 +107,123 @@ export function Sidecar() {
         return () => chrome.storage.onChanged.removeListener(listener);
     }, []);
 
-    // Fetch real positions whenever wallet address changes
+    // Refresh real positions from the backend
+    const refreshPositions = useCallback(async (showLoading = false) => {
+        if (!walletState.connected || !walletState.address) return;
+
+        if (showLoading) {
+            setPositionsLoading(true);
+            setPositionsError(null);
+        }
+        try {
+            const fetchedPositions = await api.positions.list(walletState.address);
+            setRawPositions(fetchedPositions);
+            setPositions(fetchedPositions.map(mapPosition));
+            const newMetrics = deriveMetrics(fetchedPositions);
+            setMetrics(newMetrics);
+
+            // Append PnL to history for sparkline
+            setPnlHistory((prev) => {
+                const updated = [...prev, newMetrics.pnl].slice(-20);
+                chrome.storage.local.set({ pnlHistory: updated });
+                return updated;
+            });
+        } catch (err) {
+            console.warn('[Taurus] Failed to fetch positions:', err);
+            if (showLoading) {
+                setPositionsError((err as Error).message ?? 'Failed to load positions');
+            }
+        } finally {
+            if (showLoading) setPositionsLoading(false);
+        }
+    }, [walletState.address, walletState.connected]);
+
+    // Refresh local position prices from the CLOB midpoint API (per token)
+    const refreshLocalPositions = useCallback(async (positionsToRefresh?: Position[]) => {
+        const source = positionsToRefresh ?? localPositions;
+        if (source.length === 0) return;
+
+        // Fetch midpoint for each unique token (outcomeId)
+        const tokenIds = [...new Set(source.map((p) => p.outcomeId))];
+        const tokenPrices = new Map<string, number>();
+
+        await Promise.all(
+            tokenIds.map(async (tokenId) => {
+                try {
+                    const data = await api.markets.midpoint(tokenId);
+                    const mid = parseFloat(data.mid);
+                    if (!isNaN(mid)) {
+                        tokenPrices.set(tokenId, mid);
+                    }
+                } catch (err) {
+                    console.warn('[Taurus] Failed to fetch midpoint for token', tokenId, err);
+                }
+            })
+        );
+
+        if (tokenPrices.size === 0) return;
+
+        // Read-modify-write to avoid race conditions with new trades
+        chrome.storage.local.get(['localPositions'], (res) => {
+            const current: Position[] = res.localPositions ?? [];
+            const updated = current.map((pos) => {
+                const currentPrice = tokenPrices.get(pos.outcomeId);
+                if (currentPrice === undefined) return pos;
+
+                const shares = parseFloat(pos.shares);
+                const pnl = (currentPrice - pos.avgPrice) * shares;
+                const pnlPercent = pos.avgPrice > 0
+                    ? ((currentPrice - pos.avgPrice) / pos.avgPrice) * 100
+                    : 0;
+
+                return { ...pos, currentPrice, pnl, pnlPercent };
+            });
+
+            chrome.storage.local.set({ localPositions: updated });
+        });
+    }, [localPositions]);
+
+    // Initial fetch on wallet connect
     useEffect(() => {
         if (!walletState.connected || !walletState.address) {
             setPositions([]);
             setMetrics({ pnl: 0, volume: 0, streak: 0 });
+            initialLoadDone.current = false;
             return;
         }
+        initialLoadDone.current = false;
+        refreshPositions(true).then(() => { initialLoadDone.current = true; });
+    }, [walletState.address, refreshPositions]);
 
-        setPositionsLoading(true);
-        setPositionsError(null);
-        api.positions.list(walletState.address)
-            .then((fetchedPositions) => {
-                setRawPositions(fetchedPositions);
-                setPositions(fetchedPositions.map(mapPosition));
-                setMetrics(deriveMetrics(fetchedPositions));
-            })
-            .catch((err) => {
-                console.warn('[Taurus] Failed to fetch positions:', err);
-                setPositionsError((err as Error).message ?? 'Failed to load positions');
-            })
-            .finally(() => setPositionsLoading(false));
-    }, [walletState.address]);
+    // Refresh local position prices immediately when they change (new trade placed)
+    useEffect(() => {
+        if (localPositions.length === 0) return;
+        refreshLocalPositions(localPositions);
+    }, [localPositions.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const allPositionsForPortfolio = toPortfolioPositions([...localPositions, ...rawPositions]);
+    // Poll every 15s when dashboard is active
+    useEffect(() => {
+        if (activeTab !== 'dashboard') return;
+        // Poll even without wallet for local positions
+        if (!walletState.connected && localPositions.length === 0) return;
+
+        const interval = setInterval(() => {
+            if (walletState.connected) refreshPositions(false);
+            refreshLocalPositions();
+        }, 15_000);
+
+        return () => clearInterval(interval);
+    }, [walletState.connected, activeTab, localPositions.length, refreshPositions, refreshLocalPositions]);
+
+    // Recompute metrics including local positions
+    const allRawPositions = [...localPositions, ...rawPositions];
+    const combinedMetrics: Metrics = {
+        pnl: allRawPositions.reduce((sum, p) => sum + p.pnl, 0),
+        volume: Math.round(allRawPositions.reduce((sum, p) => sum + parseFloat(p.shares) * p.avgPrice, 0)),
+        streak: (() => { let s = 0; for (const p of allRawPositions) { if (p.pnl > 0) s++; else break; } return s; })(),
+    };
+
+    const allPositionsForPortfolio = toPortfolioPositions(allRawPositions);
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard' },
@@ -149,9 +268,10 @@ export function Sidecar() {
                 {activeTab === 'dashboard' && (
                     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <MetricsCard
-                            pnl={metrics.pnl}
-                            volume={metrics.volume}
-                            streak={metrics.streak}
+                            pnl={combinedMetrics.pnl}
+                            volume={combinedMetrics.volume}
+                            streak={combinedMetrics.streak}
+                            sparklineData={pnlHistory}
                         />
                         {positionsLoading ? (
                             <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '12.5px' }}>
@@ -162,7 +282,10 @@ export function Sidecar() {
                                 {positionsError}
                             </div>
                         ) : (
-                            <PositionsCard positions={[...localPositions.map(mapPosition), ...positions]} />
+                            <PositionsCard
+                                positions={[...localPositions.map(mapPosition), ...positions]}
+                                onExitPosition={(pos) => setSellPosition(pos)}
+                            />
                         )}
                     </div>
                 )}
@@ -181,15 +304,34 @@ export function Sidecar() {
 
                 {activeTab === 'markets' && (
                     <div className="animate-fade-in">
-                        <div className="it-state">
-                            <span className="it-state-title">Trending markets</span>
-                            <span className="it-state-text">Top Polymarket markets will appear here as you browse X.</span>
-                        </div>
+                        <TrendingMarketsTab onBuy={setBuySelection} />
                     </div>
                 )}
             </div>
 
             <SlideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+
+            {buySelection && walletState.address && (
+                <BuyModal
+                    market={buySelection.market}
+                    side={buySelection.side}
+                    walletAddress={walletState.address}
+                    onClose={() => setBuySelection(null)}
+                    onSuccess={() => setBuySelection(null)}
+                />
+            )}
+
+            {sellPosition && walletState.address && (
+                <SellModal
+                    position={sellPosition}
+                    walletAddress={walletState.address}
+                    onClose={() => setSellPosition(null)}
+                    onSuccess={() => {
+                        setSellPosition(null);
+                        refreshPositions(false);
+                    }}
+                />
+            )}
         </div>
     );
 }

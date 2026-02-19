@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { fetchMarkets, fetchMarket } from '../services/polymarket/markets.js';
+import { config } from '../config/index.js';
 
 const listQuerySchema = z.object({
   limit: z
@@ -58,6 +59,31 @@ export const marketsPlugin: FastifyPluginAsync = async (fastify) => {
     } catch (err) {
       fastify.log.error(err, `Failed to fetch market ${id} from Polymarket`);
       return reply.status(502).send({ error: 'Failed to fetch market from upstream' });
+    }
+  });
+
+  // GET /api/markets/:id/price — live price via CLOB midpoint API
+  // Accepts a clobTokenId (outcomeId) and returns the real-time midpoint price.
+  fastify.get<{ Params: { id: string } }>('/api/markets/:id/price', async (request, reply) => {
+    const parseResult = getParamsSchema.safeParse(request.params);
+    if (!parseResult.success) {
+      return reply.status(400).send({ error: 'Invalid token ID' });
+    }
+
+    const { id: tokenId } = parseResult.data;
+
+    try {
+      const res = await fetch(
+        `${config.polymarket.clobBaseUrl}/midpoint?token_id=${encodeURIComponent(tokenId)}`
+      );
+      if (!res.ok) {
+        return reply.status(502).send({ error: 'Failed to fetch midpoint from CLOB' });
+      }
+      const data = (await res.json()) as { mid: string };
+      return reply.send({ mid: data.mid });
+    } catch (err) {
+      fastify.log.error(err, `Failed to fetch CLOB midpoint for token ${tokenId}`);
+      return reply.status(502).send({ error: 'Failed to fetch price from upstream' });
     }
   });
 };

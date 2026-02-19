@@ -5,14 +5,15 @@ interface MetricsCardProps {
   pnl: number;
   volume: number;
   streak: number;
+  sparklineData?: number[];
 }
 
-export function MetricsCard({ pnl, volume, streak }: MetricsCardProps) {
+export function MetricsCard({ pnl, volume, streak, sparklineData }: MetricsCardProps) {
   const pnlClass = pnl >= 0 ? 'positive' : 'negative';
   const pnlSign = pnl >= 0 ? '+' : '';
-  
-  // Fake sparkline data
-  const data = [10, 15, 13, 20, 18, 25, 22, 30, 28, 35, 40, 38, 45];
+
+  // Use real PnL history if available, otherwise flat line at current PnL
+  const data = sparklineData && sparklineData.length > 1 ? sparklineData : [pnl, pnl];
 
   return (
     <div className="metrics-card">

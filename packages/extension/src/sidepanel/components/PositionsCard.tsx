@@ -1,24 +1,13 @@
 import React from 'react';
 import { PositionItem } from './PositionItem';
-import { Accordion } from './Accordion';
-
-interface Position {
-  id: string;
-  marketQuestion: string;
-  side: 'yes' | 'no';
-  size: string;
-  pnlPercent: number;
-}
+import type { DisplayPosition } from '../Sidecar';
 
 interface PositionsCardProps {
-  positions: Position[];
+  positions: DisplayPosition[];
+  onExitPosition?: (position: DisplayPosition) => void;
 }
 
-export function PositionsCard({ positions }: PositionsCardProps) {
-  // If we wanted to use the Accordion component, we could wrap each item.
-  // For now, let's stick to the list view as it's more dashboard-like, 
-  // but we can use the sleek styling we defined.
-
+export function PositionsCard({ positions, onExitPosition }: PositionsCardProps) {
   return (
     <div className="positions-card">
       <div className="section-title">
@@ -40,6 +29,7 @@ export function PositionsCard({ positions }: PositionsCardProps) {
               side={position.side}
               size={position.size}
               pnlPercent={position.pnlPercent}
+              onExit={onExitPosition ? () => onExitPosition(position) : undefined}
             />
           ))
         )}
