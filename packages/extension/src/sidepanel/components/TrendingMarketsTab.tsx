@@ -23,9 +23,9 @@ function formatEndDate(iso: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-/** Only show markets that have valid Yes/No token IDs (binary markets) */
+/** Only show markets that have valid Yes/No token IDs (binary) and haven't ended */
 function isTradeable(m: Market): boolean {
-  return m.yesTokenId !== '' && m.noTokenId !== '';
+  return m.yesTokenId !== '' && m.noTokenId !== '' && new Date(m.endDate).getTime() > Date.now();
 }
 
 export interface BuySelection {

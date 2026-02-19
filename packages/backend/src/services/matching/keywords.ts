@@ -59,7 +59,7 @@ function scoreTweetAgainstMarket(
 // ── Public API ───────────────────────────────────────────────────────────────
 // Minimum score to show a widget — tune up to reduce false positives,
 // tune down to catch more matches.
-const MATCH_THRESHOLD = 0.3;
+const MATCH_THRESHOLD = 0.2;
 
 /**
  * Find the single best-matching active market for a given tweet's text.
