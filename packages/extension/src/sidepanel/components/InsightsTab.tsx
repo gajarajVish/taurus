@@ -5,7 +5,6 @@ import { getInstallId, getAISettings } from '../../lib/storage';
 import type { Insight } from '@taurus/types';
 
 interface InsightsTabProps {
-  // If provided, only show insights for this market
   marketId?: string;
 }
 
@@ -20,29 +19,22 @@ export function InsightsTab({ marketId }: InsightsTabProps) {
       setLoading(true);
       setError(null);
 
-      // Check if AI insights are enabled
       const settings = await getAISettings();
       setEnabled(settings.enabled);
-
-      if (!settings.enabled) {
-        setInsights([]);
-        return;
-      }
+      if (!settings.enabled) { setInsights([]); return; }
 
       const installId = await getInstallId();
 
       if (marketId) {
-        // Fetch single market insight
-        const response = await api.insights.get(marketId, installId);
-        setInsights(response.insight ? [response.insight] : []);
+        const res = await api.insights.get(marketId, installId);
+        setInsights(res.insight ? [res.insight] : []);
       } else {
-        // Fetch all insights
-        const response = await api.insights.getAll(installId);
-        setInsights(response.insights);
+        const res = await api.insights.getAll(installId);
+        setInsights(res.insights);
       }
     } catch (err) {
       console.error('[InsightsTab] Failed to fetch insights:', err);
-      setError('Failed to load insights');
+      setError('Unable to reach the backend');
     } finally {
       setLoading(false);
     }
@@ -50,77 +42,87 @@ export function InsightsTab({ marketId }: InsightsTabProps) {
 
   useEffect(() => {
     fetchInsights();
-
-    // Poll for new insights every 30 seconds when tab is active
-    const intervalId = setInterval(fetchInsights, 30000);
-
-    return () => clearInterval(intervalId);
+    const id = setInterval(fetchInsights, 30000);
+    return () => clearInterval(id);
   }, [fetchInsights]);
 
-  const handleDismiss = (insightId: string) => {
-    setInsights((prev) => prev.filter((i) => i.marketId !== insightId));
+  const handleDismiss = (mid: string) => {
+    setInsights((prev) => prev.filter((i) => i.marketId !== mid));
   };
 
+  // ── Disabled ──
   if (!enabled) {
     return (
-      <div className="insights-disabled">
-        <div className="insights-disabled-icon">🤖</div>
-        <div className="insights-disabled-title">AI Insights Disabled</div>
-        <div className="insights-disabled-text">
-          Enable AI insights in settings to get sentiment analysis on the markets you view.
+      <div className="it-state">
+        <div className="it-state-glyph">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+          </svg>
         </div>
+        <span className="it-state-title">AI Insights Disabled</span>
+        <span className="it-state-text">Enable AI insights in settings to get real-time sentiment analysis on the markets you browse.</span>
       </div>
     );
   }
 
+  // ── Loading ──
   if (loading && insights.length === 0) {
     return (
-      <div className="insights-loading">
-        <div className="insights-spinner" />
-        <div>Loading insights...</div>
+      <div className="it-state">
+        <div className="it-spinner" />
+        <span className="it-state-text">Scanning for insights…</span>
       </div>
     );
   }
 
+  // ── Error ──
   if (error) {
     return (
-      <div className="insights-error">
-        <div className="insights-error-icon">⚠️</div>
-        <div>{error}</div>
-        <button className="insights-retry-btn" onClick={fetchInsights}>
-          Retry
-        </button>
+      <div className="it-state">
+        <div className="it-state-glyph">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ff4d6a" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <span className="it-state-title">{error}</span>
+        <span className="it-state-text">Make sure the backend is running on localhost:3000</span>
+        <button className="it-retry" onClick={fetchInsights}>Try again</button>
       </div>
     );
   }
 
+  // ── Empty ──
   if (insights.length === 0) {
     return (
-      <div className="insights-empty">
-        <div className="insights-empty-icon">💡</div>
-        <div className="insights-empty-title">No Insights Yet</div>
-        <div className="insights-empty-text">
-          Browse tweets with Polymarket widgets to generate AI-powered sentiment analysis.
+      <div className="it-state">
+        <div className="it-state-glyph">
+          <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" strokeWidth="1.2" strokeLinecap="round">
+            <path d="M12 2a7 7 0 017 7c0 5-7 11-7 11S5 14 5 9a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/>
+          </svg>
         </div>
-        <div className="insights-empty-hint">
-          Insights appear after viewing 3+ tweets about the same market.
+        <span className="it-state-title">No insights yet</span>
+        <span className="it-state-text">Browse tweets with Polymarket widgets — insights appear once you view 3+ tweets about the same market.</span>
+        <div className="it-steps">
+          <div className="it-step"><span className="it-step-num">1</span>Scroll your X feed</div>
+          <div className="it-step"><span className="it-step-num">2</span>View tweets with market widgets</div>
+          <div className="it-step"><span className="it-step-num">3</span>AI generates sentiment insights</div>
         </div>
       </div>
     );
   }
 
+  // ── Insights list ──
   return (
-    <div className="insights-list">
-      <div className="insights-header">
-        <span className="insights-title">AI Insights</span>
-        <span className="insights-count">{insights.length} active</span>
+    <div className="it-list">
+      <div className="it-header">
+        <div className="it-header-left">
+          <span className="it-title">Insights</span>
+          <span className="it-count">{insights.length}</span>
+        </div>
+        <button className="it-refresh" onClick={fetchInsights} title="Refresh">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        </button>
       </div>
       {insights.map((insight) => (
-        <InsightCard
-          key={insight.marketId}
-          insight={insight}
-          onDismiss={() => handleDismiss(insight.marketId)}
-        />
+        <InsightCard key={insight.marketId} insight={insight} onDismiss={() => handleDismiss(insight.marketId)} />
       ))}
     </div>
   );
