@@ -43,6 +43,10 @@ export const api = {
     },
     get: (id: string) => request<Market>(`/api/markets/${id}`),
     midpoint: (tokenId: string) => request<{ mid: string }>(`/api/markets/${tokenId}/price`),
+    priceHistory: (tokenId: string, interval = '1d', fidelity = 60) =>
+      request<{ history: { t: number; p: number }[] }>(
+        `/api/markets/${tokenId}/history?interval=${interval}&fidelity=${fidelity}`
+      ),
     match: (tweetText: string) =>
       request<MatchResponse>('/api/markets/match', { method: 'POST', body: { tweetText } }),
   },

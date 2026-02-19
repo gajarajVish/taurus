@@ -62,6 +62,38 @@ export const marketsPlugin: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // GET /api/markets/:id/history — price history via CLOB prices-history API
+  fastify.get<{ Params: { id: string }; Querystring: { interval?: string; fidelity?: string } }>(
+    '/api/markets/:id/history',
+    async (request, reply) => {
+      const parseResult = getParamsSchema.safeParse(request.params);
+      if (!parseResult.success) {
+        return reply.status(400).send({ error: 'Invalid token ID' });
+      }
+
+      const { id: tokenId } = parseResult.data;
+      const interval = (request.query as { interval?: string }).interval ?? '1d';
+      const fidelity = (request.query as { fidelity?: string }).fidelity ?? '60';
+
+      try {
+        const url = new URL('/prices-history', config.polymarket.clobBaseUrl);
+        url.searchParams.set('market', tokenId);
+        url.searchParams.set('interval', interval);
+        url.searchParams.set('fidelity', fidelity);
+
+        const res = await fetch(url.toString());
+        if (!res.ok) {
+          return reply.status(502).send({ error: 'Failed to fetch price history from CLOB' });
+        }
+        const data = (await res.json()) as { history: { t: number; p: number }[] };
+        return reply.send(data);
+      } catch (err) {
+        fastify.log.error(err, `Failed to fetch CLOB price history for token ${tokenId}`);
+        return reply.status(502).send({ error: 'Failed to fetch price history from upstream' });
+      }
+    }
+  );
+
   // GET /api/markets/:id/price — live price via CLOB midpoint API
   // Accepts a clobTokenId (outcomeId) and returns the real-time midpoint price.
   fastify.get<{ Params: { id: string } }>('/api/markets/:id/price', async (request, reply) => {

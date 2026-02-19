@@ -29,6 +29,7 @@ export function PositionsCard({ positions, onExitPosition }: PositionsCardProps)
               side={position.side}
               size={position.size}
               pnlPercent={position.pnlPercent}
+              outcomeId={position.outcomeId}
               onExit={onExitPosition ? () => onExitPosition(position) : undefined}
             />
           ))
