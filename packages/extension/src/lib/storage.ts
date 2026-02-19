@@ -16,8 +16,8 @@ const STORAGE_DEFAULTS: StorageData = {
 
 const DEFAULT_AI_SETTINGS: AIInsightsSettings = {
   enabled: true,
-  minTweetCount: 3,
-  minSentimentScore: 0.6,
+  minTweetCount: 1,
+  minSentimentScore: 0.4,
 };
 
 export async function getStorage(): Promise<StorageData> {

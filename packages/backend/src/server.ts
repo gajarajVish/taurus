@@ -6,6 +6,7 @@ import { positionsPlugin } from './routes/positions.js';
 import { tradesPlugin } from './routes/trades.js';
 import { insightsPlugin } from './routes/insights.js';
 import { tweetsPlugin } from './routes/tweets.js';
+import { startPeriodicScan } from './services/insights/aggregator.js';
 
 export async function createServer() {
   const server = Fastify({
@@ -39,6 +40,9 @@ export async function createServer() {
 
   // Tweets — tweet view recording for insight aggregation
   await server.register(tweetsPlugin);
+
+  // Start proactive 0G market scanning
+  startPeriodicScan();
 
   return server;
 }

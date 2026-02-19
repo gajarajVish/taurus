@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
 type ZGComputeNetworkBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 import { config } from '../../config/index.js';
-import type { Market, SentimentType } from '@taurus/types';
+import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis } from '@taurus/types';
 
 export interface SentimentResult {
   sentiment: SentimentType;
@@ -317,6 +317,179 @@ export async function getOGStatus(): Promise<OGStatus> {
       mode: 'local-fallback',
     };
   }
+}
+
+// ── Portfolio analysis ────────────────────────────────────────────────────
+
+function buildPortfolioPrompt(positions: PortfolioPosition[]): string {
+  const positionsFormatted = positions.map((p, i) => {
+    const direction = p.side === 'yes' ? 'YES' : 'NO';
+    const pnlSign = p.pnlPercent >= 0 ? '+' : '';
+    return `${i + 1}. "${p.marketQuestion}" — ${direction} @ $${p.size.toFixed(2)}, avg price ${p.avgPrice.toFixed(2)}, current ${p.currentPrice.toFixed(2)}, PnL: ${pnlSign}${p.pnlPercent.toFixed(1)}%`;
+  }).join('\n');
+
+  return `Analyze this prediction market portfolio for risk management:
+
+Positions (${positions.length} total):
+${positionsFormatted}
+
+Provide a JSON response with this exact structure:
+{
+  "summary": "<2-3 sentence portfolio overview>",
+  "overallRisk": "low" | "medium" | "high",
+  "correlationWarnings": ["<warnings about correlated positions that move together>"],
+  "hedgingSuggestions": ["<specific actionable hedging ideas>"],
+  "trends": ["<common themes or sector concentrations>"],
+  "diversificationScore": <number 0-1, 1 = well diversified>
+}
+
+Rules:
+- Identify positions that are likely correlated (e.g. multiple political markets, multiple crypto markets)
+- Flag concentration risk (too much exposure in one area)
+- Suggest specific hedges: "Consider taking NO on X to hedge your YES on Y"
+- Note if PnL distribution is skewed (all winning or all losing)
+- diversificationScore: 0 = all positions highly correlated, 1 = well diversified across topics
+
+Respond ONLY with valid JSON, no other text.`;
+}
+
+function parsePortfolioResponse(response: string): PortfolioAnalysis {
+  const jsonMatch = response.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('No JSON found in portfolio analysis response');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+
+  return {
+    summary: typeof parsed.summary === 'string' ? parsed.summary : 'Portfolio analysis completed.',
+    overallRisk: ['low', 'medium', 'high'].includes(parsed.overallRisk) ? parsed.overallRisk : 'medium',
+    correlationWarnings: Array.isArray(parsed.correlationWarnings)
+      ? parsed.correlationWarnings.filter((s: unknown) => typeof s === 'string')
+      : [],
+    hedgingSuggestions: Array.isArray(parsed.hedgingSuggestions)
+      ? parsed.hedgingSuggestions.filter((s: unknown) => typeof s === 'string')
+      : [],
+    trends: Array.isArray(parsed.trends)
+      ? parsed.trends.filter((s: unknown) => typeof s === 'string')
+      : [],
+    diversificationScore: typeof parsed.diversificationScore === 'number'
+      ? Math.max(0, Math.min(1, parsed.diversificationScore))
+      : 0.5,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+function analyzePortfolioLocal(positions: PortfolioPosition[]): PortfolioAnalysis {
+  const topics = positions.map((p) => p.marketQuestion.toLowerCase());
+
+  const trends: string[] = [];
+  const correlationWarnings: string[] = [];
+  const hedgingSuggestions: string[] = [];
+
+  const keywords: Record<string, string[]> = {
+    'Politics': ['election', 'president', 'vote', 'congress', 'senate', 'trump', 'biden', 'democrat', 'republican'],
+    'Crypto': ['bitcoin', 'btc', 'ethereum', 'eth', 'crypto', 'token', 'defi'],
+    'Sports': ['nba', 'nfl', 'mlb', 'championship', 'win', 'game', 'series', 'match'],
+    'Economy': ['fed', 'interest rate', 'inflation', 'gdp', 'recession', 'economic'],
+  };
+
+  const categoryCounts: Record<string, number> = {};
+  for (const topic of topics) {
+    for (const [category, kws] of Object.entries(keywords)) {
+      if (kws.some((kw) => topic.includes(kw))) {
+        categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+      }
+    }
+  }
+
+  for (const [cat, count] of Object.entries(categoryCounts)) {
+    if (count >= 2) trends.push(`${count} positions in ${cat}`);
+    if (count >= 3) correlationWarnings.push(`Heavy concentration in ${cat} markets (${count} positions) — highly correlated risk`);
+  }
+
+  const allYes = positions.filter((p) => p.side === 'yes');
+  const allNo = positions.filter((p) => p.side === 'no');
+  if (allYes.length > 0 && allNo.length === 0) {
+    hedgingSuggestions.push('All positions are YES — consider taking NO on a correlated market to hedge directional risk');
+  }
+  if (allNo.length > 0 && allYes.length === 0) {
+    hedgingSuggestions.push('All positions are NO — consider taking YES on a correlated market to balance exposure');
+  }
+
+  const losing = positions.filter((p) => p.pnlPercent < -10);
+  if (losing.length >= 2) {
+    hedgingSuggestions.push(`${losing.length} positions down >10% — consider reducing exposure or setting mental stop-losses`);
+  }
+
+  const totalCategories = Object.keys(categoryCounts).length || 1;
+  const maxConcentration = Math.max(...Object.values(categoryCounts), 0) / positions.length;
+  const diversificationScore = Math.min(1, (totalCategories / 4) * (1 - maxConcentration * 0.5));
+
+  let overallRisk: 'low' | 'medium' | 'high' = 'medium';
+  if (correlationWarnings.length >= 2 || maxConcentration > 0.7) overallRisk = 'high';
+  else if (correlationWarnings.length === 0 && diversificationScore > 0.6) overallRisk = 'low';
+
+  return {
+    summary: `Portfolio has ${positions.length} positions across ${totalCategories} categories. ${correlationWarnings.length > 0 ? 'Correlation risks detected.' : 'Moderate diversification.'}`,
+    overallRisk,
+    correlationWarnings,
+    hedgingSuggestions,
+    trends,
+    diversificationScore: Math.round(diversificationScore * 100) / 100,
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export async function analyzePortfolio(positions: PortfolioPosition[]): Promise<PortfolioAnalysis> {
+  if (positions.length === 0) {
+    return {
+      summary: 'No positions to analyze.',
+      overallRisk: 'low',
+      correlationWarnings: [],
+      hedgingSuggestions: [],
+      trends: [],
+      diversificationScore: 1,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  if (config.og.privateKey && ledgerReady) {
+    try {
+      const broker = await getBroker();
+      const service = await findChatService(broker);
+      if (!service) throw new Error('No chat service');
+
+      const { endpoint, model } = await broker.inference.getServiceMetadata(service.provider);
+      const prompt = buildPortfolioPrompt(positions);
+      const headers = await broker.inference.getRequestHeaders(service.provider, prompt);
+
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You are a risk management analyst specializing in prediction markets. Always respond with valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          model,
+          temperature: 0.3,
+          max_tokens: 800,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`0G inference failed: ${response.status}`);
+
+      const result = await response.json() as { choices: Array<{ message: { content: string } }> };
+      const content = result.choices?.[0]?.message?.content;
+      if (!content) throw new Error('Empty response');
+
+      console.log('[0G] Portfolio analysis completed');
+      return parsePortfolioResponse(content);
+    } catch (err) {
+      console.warn('[0G] Portfolio analysis failed, using local:', (err as Error).message);
+    }
+  }
+
+  return analyzePortfolioLocal(positions);
 }
 
 export async function isOGAvailable(): Promise<boolean> {

@@ -39,6 +39,34 @@ export interface AIInsightsSettings {
 
 export const DEFAULT_AI_SETTINGS: AIInsightsSettings = {
   enabled: true,
-  minTweetCount: 3,
-  minSentimentScore: 0.6,
+  minTweetCount: 1,
+  minSentimentScore: 0.4,
 };
+
+// Portfolio analysis types
+export interface PortfolioPosition {
+  marketQuestion: string;
+  side: 'yes' | 'no';
+  size: number;
+  avgPrice: number;
+  currentPrice: number;
+  pnlPercent: number;
+}
+
+export interface PortfolioAnalysis {
+  summary: string;
+  overallRisk: 'low' | 'medium' | 'high';
+  correlationWarnings: string[];
+  hedgingSuggestions: string[];
+  trends: string[];
+  diversificationScore: number;   // 0-1
+  timestamp: string;
+}
+
+export interface PortfolioAnalysisRequest {
+  positions: PortfolioPosition[];
+}
+
+export interface PortfolioAnalysisResponse {
+  analysis: PortfolioAnalysis | null;
+}

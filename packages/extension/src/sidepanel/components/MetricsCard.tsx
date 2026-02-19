@@ -28,7 +28,7 @@ export function MetricsCard({ pnl, volume, streak }: MetricsCardProps) {
         </div>
       </div>
       
-      <div style={{ height: '1px', backgroundColor: '#2f3336', margin: '4px 0' }}></div>
+      <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '2px 0' }} />
 
       <div className="metrics-row">
         <div className="metric-item">

@@ -4,6 +4,7 @@ import { createShadowRoot } from '../shared/createShadowRoot';
 import { TweetButtons } from './TweetButtons';
 import { tweetButtonStyles } from './styles';
 import { api } from '../../lib/api';
+import { getInstallId } from '../../lib/storage';
 import type { Market } from '@taurus/types';
 
 interface InjectedTweet {
@@ -65,6 +66,11 @@ export async function injectTweetButtons(
 
     injectedTweets.set(tweetElement, { container, root: reactRoot });
     console.log('[Taurus] Injected widget for tweet', tweetId, '—', match.question);
+
+    getInstallId().then((installId) => {
+      api.tweets.recordView({ installId, tweetId, tweetText, marketId: match.id })
+        .catch(() => {});
+    });
   } catch (err) {
     // Swallow all errors — backend may not be running, network may fail.
     // The extension must never crash the host page.

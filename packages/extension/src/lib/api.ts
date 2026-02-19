@@ -1,5 +1,5 @@
 // API client for communicating with the backend
-import type { Market, MatchResponse, Position, GetInsightResponse, Insight } from '@taurus/types';
+import type { Market, MatchResponse, Position, GetInsightResponse, Insight, RecordViewRequest, RecordViewResponse, PortfolioAnalysisRequest, PortfolioAnalysisResponse } from '@taurus/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -56,11 +56,19 @@ export const api = {
     submit: (trade: unknown) => request<{ success: boolean; data?: unknown; error?: string }>('/api/trades', { method: 'POST', body: trade }),
   },
 
+  // Tweets
+  tweets: {
+    recordView: (body: RecordViewRequest) =>
+      request<RecordViewResponse>('/api/tweets/view', { method: 'POST', body }),
+  },
+
   // Insights
   insights: {
     get: (marketId: string, installId: string) =>
       request<GetInsightResponse>(`/api/insights/${marketId}?installId=${encodeURIComponent(installId)}`),
     getAll: (installId: string) =>
       request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
+    analyzePortfolio: (body: PortfolioAnalysisRequest) =>
+      request<PortfolioAnalysisResponse>('/api/insights/portfolio', { method: 'POST', body }),
   },
 };

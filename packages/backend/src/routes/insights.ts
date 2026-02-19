@@ -3,9 +3,10 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { GetInsightResponse, Insight, AIInsightsSettings } from '@taurus/types';
-import { getCachedInsight, getAllInsights, getAggregatorStats } from '../services/insights/aggregator.js';
+import type { GetInsightResponse, Insight, AIInsightsSettings, PortfolioAnalysisRequest, PortfolioAnalysisResponse } from '@taurus/types';
+import { getCachedInsight, getAllInsights, getAggregatorStats, getGlobalInsight, getAllGlobalInsights } from '../services/insights/aggregator.js';
 import { getSettings, updateSettings } from '../services/session/views.js';
+import { analyzePortfolio } from '../services/og/inference.js';
 
 const GetInsightParamsSchema = z.object({
   marketId: z.string().min(1),
@@ -46,7 +47,7 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
     const { marketId } = paramsResult.data;
     const { installId } = queryResult.data;
 
-    const insight = getCachedInsight(installId, marketId);
+    const insight = getCachedInsight(installId, marketId) ?? getGlobalInsight(marketId);
 
     return { insight };
   });
@@ -62,9 +63,16 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
     }
 
     const { installId } = queryResult.data;
-    const insights = getAllInsights(installId);
+    const userInsights = getAllInsights(installId);
+    const globalInsights = getAllGlobalInsights();
 
-    return { insights };
+    const seen = new Set(userInsights.map((i) => i.marketId));
+    const merged = [
+      ...userInsights,
+      ...globalInsights.filter((i) => !seen.has(i.marketId)),
+    ];
+
+    return { insights: merged };
   });
 
   // GET /api/insights/settings - Get user's AI settings
@@ -103,6 +111,36 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
     const updated = updateSettings(installId, settings);
 
     return updated;
+  });
+
+  // POST /api/insights/portfolio - Analyze portfolio for trends and hedging
+  const PortfolioSchema = z.object({
+    positions: z.array(z.object({
+      marketQuestion: z.string(),
+      side: z.enum(['yes', 'no']),
+      size: z.number(),
+      avgPrice: z.number(),
+      currentPrice: z.number(),
+      pnlPercent: z.number(),
+    })).min(1),
+  });
+
+  server.post<{
+    Body: PortfolioAnalysisRequest;
+    Reply: PortfolioAnalysisResponse;
+  }>('/api/insights/portfolio', async (request, reply) => {
+    const parseResult = PortfolioSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      return reply.status(400).send({ analysis: null });
+    }
+
+    try {
+      const analysis = await analyzePortfolio(parseResult.data.positions);
+      return { analysis };
+    } catch (err) {
+      server.log.error(err, 'Portfolio analysis failed');
+      return reply.status(500).send({ analysis: null });
+    }
   });
 
   // GET /api/insights/stats - Get aggregator stats (for debugging)

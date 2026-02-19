@@ -4,9 +4,11 @@ import { MetricsCard } from './components/MetricsCard';
 import { PositionsCard } from './components/PositionsCard';
 import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
+import { InsightsTab } from './components/InsightsTab';
+import { PortfolioTab } from './components/PortfolioTab';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
-import type { Position } from '@taurus/types';
+import type { Position, PortfolioPosition } from '@taurus/types';
 
 interface DisplayPosition {
     id: string;
@@ -38,12 +40,24 @@ function deriveMetrics(positions: Position[]): Metrics {
     return { pnl, volume: Math.round(volume), streak: 0 };
 }
 
+function toPortfolioPositions(positions: Position[]): PortfolioPosition[] {
+    return positions.map((p) => ({
+        marketQuestion: p.marketQuestion,
+        side: p.outcomeName.toLowerCase() === 'yes' ? 'yes' as const : 'no' as const,
+        size: parseFloat(p.shares) * p.avgPrice,
+        avgPrice: p.avgPrice,
+        currentPrice: p.currentPrice,
+        pnlPercent: p.pnlPercent,
+    }));
+}
+
 export function Sidecar() {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
     const [activeTab, setActiveTab] = useState('dashboard');
     const [positions, setPositions] = useState<DisplayPosition[]>([]);
     const [metrics, setMetrics] = useState<Metrics>({ pnl: 0, volume: 0, streak: 0 });
+    const [rawPositions, setRawPositions] = useState<Position[]>([]);
     const [positionsLoading, setPositionsLoading] = useState(false);
     const [positionsError, setPositionsError] = useState<string | null>(null);
     const [localPositions, setLocalPositions] = useState<Position[]>([]);
@@ -78,9 +92,10 @@ export function Sidecar() {
         setPositionsLoading(true);
         setPositionsError(null);
         api.positions.list(walletState.address)
-            .then((rawPositions) => {
-                setPositions(rawPositions.map(mapPosition));
-                setMetrics(deriveMetrics(rawPositions));
+            .then((fetchedPositions) => {
+                setRawPositions(fetchedPositions);
+                setPositions(fetchedPositions.map(mapPosition));
+                setMetrics(deriveMetrics(fetchedPositions));
             })
             .catch((err) => {
                 console.warn('[Taurus] Failed to fetch positions:', err);
@@ -89,9 +104,12 @@ export function Sidecar() {
             .finally(() => setPositionsLoading(false));
     }, [walletState.address]);
 
+    const allPositionsForPortfolio = toPortfolioPositions([...localPositions, ...rawPositions]);
+
     const tabs = [
         { id: 'dashboard', label: 'Dashboard' },
-        { id: 'activity', label: 'Activity' },
+        { id: 'insights', label: 'Insights' },
+        { id: 'risk', label: 'Risk' },
         { id: 'markets', label: 'Markets' },
     ];
 
@@ -129,18 +147,18 @@ export function Sidecar() {
 
             <div className="sidecar-content">
                 {activeTab === 'dashboard' && (
-                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                         <MetricsCard
                             pnl={metrics.pnl}
                             volume={metrics.volume}
                             streak={metrics.streak}
                         />
                         {positionsLoading ? (
-                            <div style={{ padding: '20px', textAlign: 'center', color: '#71767b' }}>
+                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '12.5px' }}>
                                 Loading positions...
                             </div>
                         ) : positionsError ? (
-                            <div style={{ padding: '20px', textAlign: 'center', color: '#f4212e', fontSize: '12px' }}>
+                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-error)', fontSize: '12px' }}>
                                 {positionsError}
                             </div>
                         ) : (
@@ -149,18 +167,23 @@ export function Sidecar() {
                     </div>
                 )}
 
-                {activeTab === 'activity' && (
+                {activeTab === 'insights' && (
                     <div className="animate-fade-in">
-                        <div style={{ padding: '20px', textAlign: 'center', color: '#71767b' }}>
-                            No recent activity
-                        </div>
+                        <InsightsTab />
+                    </div>
+                )}
+
+                {activeTab === 'risk' && (
+                    <div className="animate-fade-in">
+                        <PortfolioTab positions={allPositionsForPortfolio} />
                     </div>
                 )}
 
                 {activeTab === 'markets' && (
                     <div className="animate-fade-in">
-                        <div style={{ padding: '20px', textAlign: 'center', color: '#71767b' }}>
-                            Trending markets will appear here
+                        <div className="it-state">
+                            <span className="it-state-title">Trending markets</span>
+                            <span className="it-state-text">Top Polymarket markets will appear here as you browse X.</span>
                         </div>
                     </div>
                 )}

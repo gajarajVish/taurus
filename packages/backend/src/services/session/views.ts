@@ -32,8 +32,8 @@ const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 // Default settings
 const defaultSettings: AIInsightsSettings = {
   enabled: true,
-  minTweetCount: 3,
-  minSentimentScore: 0.6,
+  minTweetCount: 1,
+  minSentimentScore: 0.4,
 };
 
 // Periodic cleanup of expired sessions
