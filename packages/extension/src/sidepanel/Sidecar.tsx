@@ -298,7 +298,14 @@ export function Sidecar() {
 
                 {activeTab === 'risk' && (
                     <div className="animate-fade-in">
-                        <PortfolioTab positions={allPositionsForPortfolio} />
+                        <PortfolioTab
+                            positions={allPositionsForPortfolio}
+                            displayPositions={[...localPositions.map(mapPosition), ...positions]}
+                            onExitPosition={(pos) => {
+                                setActiveTab('dashboard');
+                                setSellPosition(pos);
+                            }}
+                        />
                     </div>
                 )}
 

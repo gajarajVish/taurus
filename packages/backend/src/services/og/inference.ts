@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
 type ZGComputeNetworkBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 import { config } from '../../config/index.js';
-import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis, Insight } from '@taurus/types';
+import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis, ActionableItem, Insight } from '@taurus/types';
 
 export interface SentimentResult {
   sentiment: SentimentType;
@@ -325,7 +325,7 @@ function buildPortfolioPrompt(positions: PortfolioPosition[], insights: Insight[
   const positionsFormatted = positions.map((p, i) => {
     const direction = p.side === 'yes' ? 'YES' : 'NO';
     const pnlSign = p.pnlPercent >= 0 ? '+' : '';
-    return `${i + 1}. "${p.marketQuestion}" — ${direction} @ $${p.size.toFixed(2)}, avg price ${p.avgPrice.toFixed(2)}, current ${p.currentPrice.toFixed(2)}, PnL: ${pnlSign}${p.pnlPercent.toFixed(1)}%`;
+    return `${i}. "${p.marketQuestion}" — ${direction} @ $${p.size.toFixed(2)}, avg price ${p.avgPrice.toFixed(2)}, current ${p.currentPrice.toFixed(2)}, PnL: ${pnlSign}${p.pnlPercent.toFixed(1)}%`;
   }).join('\n');
 
   let insightsSection = '';
@@ -339,7 +339,7 @@ function buildPortfolioPrompt(positions: PortfolioPosition[], insights: Insight[
 
   return `Analyze this prediction market portfolio for risk management:
 
-Positions (${positions.length} total):
+Positions (${positions.length} total, 0-indexed):
 ${positionsFormatted}${insightsSection}
 
 Provide a JSON response with this exact structure:
@@ -347,8 +347,8 @@ Provide a JSON response with this exact structure:
   "summary": "<2-3 sentence portfolio overview>",
   "overallRisk": "low" | "medium" | "high",
   "riskExplanation": "<1-2 sentences explaining WHY this risk level was assigned, referencing specific portfolio characteristics and tweet sentiment signals if available>",
-  "correlationWarnings": ["<warnings about correlated positions that move together>"],
-  "hedgingSuggestions": ["<specific actionable hedging ideas>"],
+  "correlationWarnings": [{"text": "<warning about correlated positions>", "positionIndices": [<0-based indices of referenced positions>]}],
+  "hedgingSuggestions": [{"text": "<specific actionable hedging idea>", "positionIndices": [<0-based indices of referenced positions>]}],
   "trends": ["<common themes or sector concentrations>"],
   "diversificationScore": <number 0-1, 1 = well diversified>,
   "diversificationExplanation": "<1-2 sentences explaining WHY this diversification score was given, referencing which categories are represented and any concentration>"
@@ -362,6 +362,7 @@ Rules:
 - diversificationScore: 0 = all positions highly correlated, 1 = well diversified across topics
 - riskExplanation: cite tweet sentiment data if present (e.g. "bearish sentiment on 2 of your markets adds downside risk")
 - diversificationExplanation: mention how many distinct topics/sectors appear and where concentration lies
+- positionIndices: list the 0-based array indices of every position referenced in this item. Leave empty [] if no specific position applies.
 
 Respond ONLY with valid JSON, no other text.`;
 }
@@ -372,16 +373,28 @@ function parsePortfolioResponse(response: string): PortfolioAnalysis {
 
   const parsed = JSON.parse(jsonMatch[0]);
 
+  const parseActionableItems = (raw: unknown): ActionableItem[] => {
+    if (!Array.isArray(raw)) return [];
+    return raw.map((item: unknown): ActionableItem => {
+      if (typeof item === 'string') return { text: item, positionIndices: [] };
+      if (item && typeof item === 'object') {
+        const obj = item as Record<string, unknown>;
+        const text = typeof obj.text === 'string' ? obj.text : String(obj.text ?? '');
+        const indices = Array.isArray(obj.positionIndices)
+          ? (obj.positionIndices as unknown[]).filter((n): n is number => typeof n === 'number')
+          : [];
+        return { text, positionIndices: indices };
+      }
+      return { text: String(item), positionIndices: [] };
+    }).filter((item) => item.text.length > 0);
+  };
+
   return {
     summary: typeof parsed.summary === 'string' ? parsed.summary : 'Portfolio analysis completed.',
     overallRisk: ['low', 'medium', 'high'].includes(parsed.overallRisk) ? parsed.overallRisk : 'medium',
     riskExplanation: typeof parsed.riskExplanation === 'string' ? parsed.riskExplanation : '',
-    correlationWarnings: Array.isArray(parsed.correlationWarnings)
-      ? parsed.correlationWarnings.filter((s: unknown) => typeof s === 'string')
-      : [],
-    hedgingSuggestions: Array.isArray(parsed.hedgingSuggestions)
-      ? parsed.hedgingSuggestions.filter((s: unknown) => typeof s === 'string')
-      : [],
+    correlationWarnings: parseActionableItems(parsed.correlationWarnings),
+    hedgingSuggestions: parseActionableItems(parsed.hedgingSuggestions),
     trends: Array.isArray(parsed.trends)
       ? parsed.trends.filter((s: unknown) => typeof s === 'string')
       : [],
@@ -397,8 +410,8 @@ function analyzePortfolioLocal(positions: PortfolioPosition[], insights: Insight
   const topics = positions.map((p) => p.marketQuestion.toLowerCase());
 
   const trends: string[] = [];
-  const correlationWarnings: string[] = [];
-  const hedgingSuggestions: string[] = [];
+  const correlationWarnings: ActionableItem[] = [];
+  const hedgingSuggestions: ActionableItem[] = [];
 
   const keywords: Record<string, string[]> = {
     'Politics': ['election', 'president', 'vote', 'congress', 'senate', 'trump', 'biden', 'democrat', 'republican'],
@@ -408,31 +421,37 @@ function analyzePortfolioLocal(positions: PortfolioPosition[], insights: Insight
   };
 
   const categoryCounts: Record<string, number> = {};
-  for (const topic of topics) {
+  const categoryPositionIndices: Record<string, number[]> = {};
+  for (let i = 0; i < topics.length; i++) {
+    const topic = topics[i];
     for (const [category, kws] of Object.entries(keywords)) {
       if (kws.some((kw) => topic.includes(kw))) {
         categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+        categoryPositionIndices[category] = [...(categoryPositionIndices[category] ?? []), i];
       }
     }
   }
 
   for (const [cat, count] of Object.entries(categoryCounts)) {
     if (count >= 2) trends.push(`${count} positions in ${cat}`);
-    if (count >= 3) correlationWarnings.push(`Heavy concentration in ${cat} markets (${count} positions) — highly correlated risk`);
+    if (count >= 3) correlationWarnings.push({
+      text: `Heavy concentration in ${cat} markets (${count} positions) — highly correlated risk`,
+      positionIndices: categoryPositionIndices[cat] ?? [],
+    });
   }
 
-  const allYes = positions.filter((p) => p.side === 'yes');
-  const allNo = positions.filter((p) => p.side === 'no');
-  if (allYes.length > 0 && allNo.length === 0) {
-    hedgingSuggestions.push('All positions are YES — consider taking NO on a correlated market to hedge directional risk');
+  const allYesIndices = positions.reduce<number[]>((acc, p, i) => p.side === 'yes' ? [...acc, i] : acc, []);
+  const allNoIndices = positions.reduce<number[]>((acc, p, i) => p.side === 'no' ? [...acc, i] : acc, []);
+  if (allYesIndices.length > 0 && allNoIndices.length === 0) {
+    hedgingSuggestions.push({ text: 'All positions are YES — consider taking NO on a correlated market to hedge directional risk', positionIndices: allYesIndices });
   }
-  if (allNo.length > 0 && allYes.length === 0) {
-    hedgingSuggestions.push('All positions are NO — consider taking YES on a correlated market to balance exposure');
+  if (allNoIndices.length > 0 && allYesIndices.length === 0) {
+    hedgingSuggestions.push({ text: 'All positions are NO — consider taking YES on a correlated market to balance exposure', positionIndices: allNoIndices });
   }
 
-  const losing = positions.filter((p) => p.pnlPercent < -10);
-  if (losing.length >= 2) {
-    hedgingSuggestions.push(`${losing.length} positions down >10% — consider reducing exposure or setting mental stop-losses`);
+  const losingIndices = positions.reduce<number[]>((acc, p, i) => p.pnlPercent < -10 ? [...acc, i] : acc, []);
+  if (losingIndices.length >= 2) {
+    hedgingSuggestions.push({ text: `${losingIndices.length} positions down >10% — consider reducing exposure or setting mental stop-losses`, positionIndices: losingIndices });
   }
 
   const totalCategories = Object.keys(categoryCounts).length || 1;

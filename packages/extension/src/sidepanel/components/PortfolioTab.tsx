@@ -1,10 +1,13 @@
 import React, { useState, useCallback } from 'react';
 import { api } from '../../lib/api';
 import { getInstallId } from '../../lib/storage';
-import type { PortfolioAnalysis, PortfolioPosition } from '@taurus/types';
+import type { PortfolioAnalysis, PortfolioPosition, ActionableItem } from '@taurus/types';
+import type { DisplayPosition } from '../Sidecar';
 
 interface PortfolioTabProps {
   positions: PortfolioPosition[];
+  displayPositions: DisplayPosition[];
+  onExitPosition: (pos: DisplayPosition) => void;
 }
 
 const RISK_COLORS = {
@@ -13,7 +16,7 @@ const RISK_COLORS = {
   high: { color: '#ff4d6a', bg: 'rgba(255,77,106,0.08)', label: 'High Risk' },
 };
 
-export function PortfolioTab({ positions }: PortfolioTabProps) {
+export function PortfolioTab({ positions, displayPositions, onExitPosition }: PortfolioTabProps) {
   const [analysis, setAnalysis] = useState<PortfolioAnalysis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,10 +138,32 @@ export function PortfolioTab({ positions }: PortfolioTabProps) {
       {analysis.correlationWarnings.length > 0 && (
         <div className="pa-section">
           <div className="pa-section-title" style={{ color: 'var(--color-warning)' }}>Correlation Risks</div>
-          {analysis.correlationWarnings.map((w: string, i: number) => (
-            <div key={i} className="pa-item">
+          {analysis.correlationWarnings.map((w: ActionableItem, i: number) => (
+            <div key={i} className="pa-item pa-item--actionable">
               <span className="pa-bullet" style={{ background: 'var(--color-warning)' }} />
-              {w}
+              <div className="pa-item-content">
+                <span>{w.text}</span>
+                {w.positionIndices.length > 0 && (
+                  <div className="pa-exit-links">
+                    {w.positionIndices.map((idx: number) => {
+                      const pos = displayPositions[idx];
+                      if (!pos) return null;
+                      const label = pos.marketQuestion.length > 28
+                        ? pos.marketQuestion.slice(0, 28) + '…'
+                        : pos.marketQuestion;
+                      return (
+                        <button
+                          key={idx}
+                          className="pa-exit-link pa-exit-link--warning"
+                          onClick={() => onExitPosition(pos)}
+                        >
+                          Exit → {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -148,10 +173,32 @@ export function PortfolioTab({ positions }: PortfolioTabProps) {
       {analysis.hedgingSuggestions.length > 0 && (
         <div className="pa-section">
           <div className="pa-section-title" style={{ color: 'var(--color-success)' }}>Hedging Suggestions</div>
-          {analysis.hedgingSuggestions.map((h: string, i: number) => (
-            <div key={i} className="pa-item">
+          {analysis.hedgingSuggestions.map((h: ActionableItem, i: number) => (
+            <div key={i} className="pa-item pa-item--actionable">
               <span className="pa-bullet" style={{ background: 'var(--color-success)' }} />
-              {h}
+              <div className="pa-item-content">
+                <span>{h.text}</span>
+                {h.positionIndices.length > 0 && (
+                  <div className="pa-exit-links">
+                    {h.positionIndices.map((idx: number) => {
+                      const pos = displayPositions[idx];
+                      if (!pos) return null;
+                      const label = pos.marketQuestion.length > 28
+                        ? pos.marketQuestion.slice(0, 28) + '…'
+                        : pos.marketQuestion;
+                      return (
+                        <button
+                          key={idx}
+                          className="pa-exit-link pa-exit-link--success"
+                          onClick={() => onExitPosition(pos)}
+                        >
+                          Exit → {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
