@@ -3,6 +3,7 @@ import type { Market, Insight } from '@taurus/types';
 import { getWalletState, shortAddress, type WalletState } from '../../lib/wallet';
 import { api } from '../../lib/api';
 import { getInstallId, getAISettings } from '../../lib/storage';
+import { sendMessage } from '../shared/messaging';
 
 interface TradeModalProps {
   market: Market;
@@ -17,6 +18,8 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
   const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
   const [insight, setInsight] = useState<Insight | null>(null);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     getWalletState().then(setWalletState);
@@ -70,18 +73,30 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
     }
   };
 
-  const handleConfirm = (e: React.MouseEvent) => {
+  const handleConfirm = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('[Taurus] Trade submitted:', {
-      market: market.id,
-      question: market.question,
-      side,
-      amount: numericAmount,
-      price,
-      potentialPayout: payout,
-    });
-    onClose();
+    if (numericAmount <= 0) return;
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const outcomeId = side === 'YES' ? market.yesTokenId : market.noTokenId;
+      await sendMessage<{ id: string; status: string }>({
+        type: 'PLACE_BET',
+        payload: {
+          marketId: market.id,
+          side: side === 'YES' ? 'yes' : 'no',
+          amount: amount.trim() || String(numericAmount),
+          price,
+          outcomeId: outcomeId || market.id,
+        },
+      });
+      onClose();
+    } catch (err) {
+      setSubmitError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -196,12 +211,17 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
               </div>
             )}
 
+            {submitError && (
+              <div className="submit-error" style={{ color: 'var(--color-error, #e74c3c)', fontSize: '12px', marginBottom: '8px' }}>
+                {submitError}
+              </div>
+            )}
             <button
               className={`confirm-button ${side === 'YES' ? 'yes' : 'no'}`}
               onClick={handleConfirm}
-              disabled={numericAmount <= 0}
+              disabled={numericAmount <= 0 || submitting}
             >
-              Confirm {side}
+              {submitting ? 'Submitting…' : `Confirm ${side}`}
             </button>
           </>
         )}
