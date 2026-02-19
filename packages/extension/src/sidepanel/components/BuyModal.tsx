@@ -97,6 +97,7 @@ export function BuyModal({ market, side, walletAddress, onClose, onSuccess }: Bu
   return (
     <div className="sm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="sm-container">
+        <div className="sm-handle" />
         <div className="sm-header">
           <span className="sm-title">Place a Bet</span>
           <button className="sm-close" onClick={onClose}>&#10005;</button>

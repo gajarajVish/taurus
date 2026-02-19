@@ -93,6 +93,7 @@ export function SellModal({ position, walletAddress, onClose, onSuccess }: SellM
   return (
     <div className="sm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="sm-container">
+        <div className="sm-handle" />
         <div className="sm-header">
           <span className="sm-title">Exit Position</span>
           <button className="sm-close" onClick={onClose}>✕</button>

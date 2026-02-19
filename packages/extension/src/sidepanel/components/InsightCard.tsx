@@ -16,12 +16,12 @@ export function InsightCard({ insight, onDismiss }: InsightCardProps) {
   const timeAgo = getTimeAgo(insight.timestamp);
 
   const sentimentConfig = {
-    bullish: { label: 'Bullish', color: '#00c896', icon: '↗', bg: 'rgba(0,200,150,0.08)', border: 'rgba(0,200,150,0.25)' },
-    bearish: { label: 'Bearish', color: '#ff4d6a', icon: '↘', bg: 'rgba(255,77,106,0.08)', border: 'rgba(255,77,106,0.25)' },
-    neutral: { label: 'Neutral', color: '#8b8fa3', icon: '→', bg: 'rgba(139,143,163,0.08)', border: 'rgba(139,143,163,0.25)' },
+    bullish: { label: 'Bullish', color: '#30d158', icon: '↗', bg: 'rgba(48,209,88,0.08)', border: 'rgba(48,209,88,0.25)' },
+    bearish: { label: 'Bearish', color: '#ff453a', icon: '↘', bg: 'rgba(255,69,58,0.08)', border: 'rgba(255,69,58,0.25)' },
+    neutral: { label: 'Neutral', color: '#98989d', icon: '→', bg: 'rgba(152,152,157,0.08)', border: 'rgba(152,152,157,0.25)' },
   }[insight.sentiment];
 
-  const shiftColor = shiftPercent >= 0 ? '#00c896' : '#ff4d6a';
+  const shiftColor = shiftPercent >= 0 ? '#30d158' : '#ff453a';
 
   return (
     <div className="ic" style={{ borderColor: sentimentConfig.border }}>

@@ -21,7 +21,6 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
           onClick={() => onChange(tab.id)}
         >
           {tab.label}
-          {activeTab === tab.id && <div className="tab-indicator" />}
         </button>
       ))}
     </div>

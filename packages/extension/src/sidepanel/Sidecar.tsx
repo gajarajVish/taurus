@@ -9,6 +9,7 @@ import { PendingExitBanner } from './components/PendingExitBanner';
 import { SellModal } from './components/SellModal';
 import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
 import { BuyModal } from './components/BuyModal';
+import { SlideMenu } from './components/SlideMenu';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
 import { getPendingExits, dismissPendingExit, getInstallId } from '../lib/storage';
@@ -86,6 +87,7 @@ export function Sidecar() {
     const [sellPosition, setSellPosition] = useState<DisplayPosition | null>(null);
     const [buySelection, setBuySelection] = useState<BuySelection | null>(null);
     const [pendingExits, setPendingExits] = useState<PendingExit[]>([]);
+    const [menuOpen, setMenuOpen] = useState(false);
     const initialLoadDone = useRef(false);
 
     useEffect(() => {
@@ -309,6 +311,7 @@ export function Sidecar() {
                 address={walletState.address}
                 onConnectWallet={handleConnectWallet}
                 onDisconnectWallet={handleDisconnectWallet}
+                onMenuOpen={() => setMenuOpen(true)}
             />
 
             <Tabs
@@ -327,7 +330,7 @@ export function Sidecar() {
                 )}
 
                 {activeTab === 'dashboard' && (
-                    <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div className="animate-fade-in dashboard-content">
                         <MetricsCard
                             pnl={combinedMetrics.pnl}
                             volume={combinedMetrics.volume}
@@ -335,11 +338,11 @@ export function Sidecar() {
                             sparklineData={pnlHistory}
                         />
                         {positionsLoading ? (
-                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-text-secondary)', fontSize: '12.5px' }}>
+                            <div className="loading-state">
                                 Loading positions...
                             </div>
                         ) : positionsError ? (
-                            <div style={{ padding: '20px', textAlign: 'center', color: 'var(--color-error)', fontSize: '12px' }}>
+                            <div className="error-state">
                                 {positionsError}
                             </div>
                         ) : (
@@ -398,6 +401,12 @@ export function Sidecar() {
                     }}
                 />
             )}
+
+            <SlideMenu
+                isOpen={menuOpen}
+                onClose={() => setMenuOpen(false)}
+                onNavigate={setActiveTab}
+            />
         </div>
     );
 }

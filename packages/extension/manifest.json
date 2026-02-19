@@ -19,7 +19,6 @@
   ],
   "action": {
     "default_title": "Taurus",
-    "default_popup": "src/popup/index.html",
     "default_icon": {
       "16": "taurus_logo_inverted.png",
       "48": "taurus_logo_inverted.png",

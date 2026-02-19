@@ -24,21 +24,26 @@ export function MetricsCard({ pnl, volume, streak, sparklineData }: MetricsCardP
             {pnlSign}${Math.abs(pnl).toFixed(2)}
           </div>
         </div>
-        <div style={{ paddingBottom: '5px' }}>
-             <Sparkline data={data} width={80} height={25} color={pnl >= 0 ? '#00ba7c' : '#f91880'} />
+        <div className="metric-sparkline">
+             <Sparkline data={data} width={80} height={25} color={pnl >= 0 ? '#30d158' : '#ff453a'} />
         </div>
       </div>
-      
-      <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '2px 0' }} />
+
+      <div className="metrics-divider" />
 
       <div className="metrics-row">
         <div className="metric-item">
           <div className="metric-label">Volume</div>
-          <div className="metric-value" style={{ fontSize: '16px' }}>${volume.toLocaleString()}</div>
+          <div className="metric-value metric-value--secondary">${volume.toLocaleString()}</div>
         </div>
-        <div className="metric-item" style={{ alignItems: 'flex-end' }}>
+        <div className="metric-item metric-item--end">
           <div className="metric-label">Streak</div>
-          <div className="metric-value" style={{ fontSize: '16px' }}>{streak} 🔥</div>
+          <div className="metric-value metric-value--secondary">
+            {streak}
+            <svg className="metric-streak-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M12 2C6.5 9.5 10 13 10 13s-4 0-4 5c0 3 3 4 6 4s6-1 6-4c0-7-6-16-6-16z" fill="#ff9f0a" />
+            </svg>
+          </div>
         </div>
       </div>
     </div>

@@ -12,13 +12,13 @@ export function PositionsCard({ positions, onExitPosition }: PositionsCardProps)
     <div className="positions-card">
       <div className="section-title">
         Open Positions
-        <span style={{ fontSize: '11px', color: 'var(--color-text-tertiary)', fontWeight: 500 }}>
+        <span className="section-title-count">
           {positions.length} active
         </span>
       </div>
       <div className="positions-list">
         {positions.length === 0 ? (
-          <div style={{ color: 'var(--color-text-secondary)', fontSize: '12.5px', textAlign: 'center', padding: '20px' }}>
+          <div className="positions-empty">
             No open positions
           </div>
         ) : (

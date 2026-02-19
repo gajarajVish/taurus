@@ -47,7 +47,7 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
     : '#555';
 
   return (
-    <div className="position-item">
+    <div className={`position-item position-item--${side}`}>
       <div className="position-header">
         <div className="position-question">{marketQuestion}</div>
         <Badge
@@ -67,12 +67,12 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
         <div className="position-stats">
           <span>{size} invested</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={`position-pnl ${pnlColorClass}`} style={{ fontWeight: 700 }}>
+        <div className="position-actions">
+          <span className={`position-pnl ${pnlColorClass}`}>
             {pnlSign}{pnlPercent.toFixed(1)}%
           </span>
           {onExit && (
-            <button className="position-exit-btn" onClick={onExit}>
+            <button className="position-exit-btn press-effect" onClick={onExit}>
               Exit
             </button>
           )}

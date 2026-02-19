@@ -10,7 +10,7 @@ chrome.runtime.onInstalled.addListener(() => {
 
   chrome.storage.local.set({ overlayEnabled: true });
 
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch((error) => console.error(error));
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.error(error));
 
   // Start the auto-exit polling alarm (every 15s = 0.25 min)
   chrome.alarms.create(ALARM_NAME, { periodInMinutes: 0.25 });
