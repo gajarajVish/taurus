@@ -835,6 +835,55 @@ body {
   margin-top: 6px;
 }
 
+.pa-item--actionable {
+  align-items: flex-start;
+}
+
+.pa-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pa-exit-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pa-exit-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid currentColor;
+  background: transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pa-exit-link--warning {
+  color: var(--color-warning);
+}
+.pa-exit-link--warning:hover {
+  background: rgba(255,179,71,0.12);
+}
+
+.pa-exit-link--success {
+  color: var(--color-success);
+}
+.pa-exit-link--success:hover {
+  background: rgba(0,200,150,0.12);
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* SellModal (sm-*) styles                                                     */
 /* ═══════════════════════════════════════════════════════════════════════════ */

@@ -114,6 +114,18 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
   });
 
   // POST /api/insights/portfolio - Analyze portfolio for trends and hedging
+  const InsightSchema = z.object({
+    marketId: z.string(),
+    summary: z.string(),
+    sentiment: z.enum(['bullish', 'bearish', 'neutral']),
+    score: z.number(),
+    consensusShift: z.number(),
+    tweetCount: z.number(),
+    riskFlags: z.array(z.string()),
+    opportunityScore: z.number(),
+    timestamp: z.string(),
+  });
+
   const PortfolioSchema = z.object({
     positions: z.array(z.object({
       marketQuestion: z.string(),
@@ -123,6 +135,7 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
       currentPrice: z.number(),
       pnlPercent: z.number(),
     })).min(1),
+    insights: z.array(InsightSchema).optional(),
   });
 
   server.post<{
@@ -135,7 +148,7 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
     }
 
     try {
-      const analysis = await analyzePortfolio(parseResult.data.positions);
+      const analysis = await analyzePortfolio(parseResult.data.positions, parseResult.data.insights ?? []);
       return { analysis };
     } catch (err) {
       server.log.error(err, 'Portfolio analysis failed');

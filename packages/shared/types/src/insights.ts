@@ -53,18 +53,26 @@ export interface PortfolioPosition {
   pnlPercent: number;
 }
 
+export interface ActionableItem {
+  text: string;
+  positionIndices: number[]; // 0-based into the positions array
+}
+
 export interface PortfolioAnalysis {
   summary: string;
   overallRisk: 'low' | 'medium' | 'high';
-  correlationWarnings: string[];
-  hedgingSuggestions: string[];
+  correlationWarnings: ActionableItem[];
+  hedgingSuggestions: ActionableItem[];
   trends: string[];
   diversificationScore: number;   // 0-1
+  riskExplanation: string;        // Why this risk level was assigned
+  diversificationExplanation: string; // Why this diversification score was given
   timestamp: string;
 }
 
 export interface PortfolioAnalysisRequest {
   positions: PortfolioPosition[];
+  insights?: Insight[];           // Cached tweet sentiment insights for context
 }
 
 export interface PortfolioAnalysisResponse {
