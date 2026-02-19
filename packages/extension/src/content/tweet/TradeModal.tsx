@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Market } from '@polyoverlay/types';
+import type { Market } from '@taurus/types';
 import { getWalletState, shortAddress, type WalletState } from '../../lib/wallet';
 
 interface TradeModalProps {

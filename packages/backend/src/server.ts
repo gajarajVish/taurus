@@ -4,6 +4,8 @@ import { marketsPlugin } from './routes/markets.js';
 import { matchPlugin } from './routes/match.js';
 import { positionsPlugin } from './routes/positions.js';
 import { tradesPlugin } from './routes/trades.js';
+import { insightsPlugin } from './routes/insights.js';
+import { tweetsPlugin } from './routes/tweets.js';
 
 export async function createServer() {
   const server = Fastify({
@@ -31,6 +33,12 @@ export async function createServer() {
 
   // Trades — submits signed orders to Polymarket CLOB
   await server.register(tradesPlugin);
+
+  // Insights — AI-powered market insights via 0G
+  await server.register(insightsPlugin);
+
+  // Tweets — tweet view recording for insight aggregation
+  await server.register(tweetsPlugin);
 
   return server;
 }

@@ -6,7 +6,7 @@ import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
-import type { Position } from '@polyoverlay/types';
+import type { Position } from '@taurus/types';
 
 interface DisplayPosition {
     id: string;

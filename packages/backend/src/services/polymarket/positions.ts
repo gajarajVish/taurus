@@ -1,4 +1,4 @@
-import type { Position } from '@polyoverlay/types';
+import type { Position } from '@taurus/types';
 import { config } from '../../config/index.js';
 
 const MOCK_POSITIONS: Position[] = [

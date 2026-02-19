@@ -1,5 +1,5 @@
 // API client for communicating with the backend
-import type { Market, MatchResponse, Position } from '@polyoverlay/types';
+import type { Market, MatchResponse, Position, GetInsightResponse, Insight } from '@taurus/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -54,5 +54,13 @@ export const api = {
   // Trades
   trades: {
     submit: (trade: unknown) => request<{ success: boolean; data?: unknown; error?: string }>('/api/trades', { method: 'POST', body: trade }),
+  },
+
+  // Insights
+  insights: {
+    get: (marketId: string, installId: string) =>
+      request<GetInsightResponse>(`/api/insights/${marketId}?installId=${encodeURIComponent(installId)}`),
+    getAll: (installId: string) =>
+      request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
   },
 };

@@ -9,6 +9,10 @@ export const config = {
   cache: {
     marketsTtl: parseInt(process.env.MARKETS_CACHE_TTL_MS ?? '300000', 10), // 5 min
   },
+  og: {
+    privateKey: process.env.OG_COMPUTE_PRIVATE_KEY ?? '',
+    rpcUrl: process.env.OG_RPC_URL ?? 'https://evmrpc-testnet.0g.ai',
+  },
 } as const;
 
 export type Config = typeof config;

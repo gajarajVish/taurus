@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { fetchAllMarkets } from '../services/polymarket/markets.js';
 import { findBestMatch } from '../services/matching/keywords.js';
-import type { Market } from '@polyoverlay/types';
+import type { Market } from '@taurus/types';
 
 const matchBodySchema = z.object({
   tweetText: z.string().min(1).max(2000),

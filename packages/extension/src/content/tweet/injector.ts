@@ -4,7 +4,7 @@ import { createShadowRoot } from '../shared/createShadowRoot';
 import { TweetButtons } from './TweetButtons';
 import { tweetButtonStyles } from './styles';
 import { api } from '../../lib/api';
-import type { Market } from '@polyoverlay/types';
+import type { Market } from '@taurus/types';
 
 interface InjectedTweet {
   container: HTMLElement;
