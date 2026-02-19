@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch --mode development",
-    "build": "tsc && vite build",
+    "dev": "node scripts/copy-logo.js && vite build --watch --mode development",
+    "build": "node scripts/copy-logo.js && tsc && vite build",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

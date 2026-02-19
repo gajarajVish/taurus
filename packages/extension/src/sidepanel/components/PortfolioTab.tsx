@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { api } from '../../lib/api';
 import { getInstallId } from '../../lib/storage';
 import type { PortfolioAnalysis, PortfolioPosition, ActionableItem } from '@taurus/types';
@@ -38,6 +38,13 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
     }
   }, [positions]);
 
+  // Auto-run analysis when there are positions and no result yet
+  useEffect(() => {
+    if (positions.length > 0 && !analysis && !loading && !error) {
+      runAnalysis();
+    }
+  }, [positions, analysis, loading, error, runAnalysis]);
+
   if (positions.length === 0) {
     return (
       <div className="it-state">
@@ -47,24 +54,7 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
     );
   }
 
-  if (!analysis && !loading && !error) {
-    return (
-      <div className="it-state">
-        <div className="it-state-glyph">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--color-brand)" strokeWidth="1.5" strokeLinecap="round">
-            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-            <line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-        </div>
-        <span className="it-state-title">Portfolio Risk Analysis</span>
-        <span className="it-state-text">Run AI analysis on your {positions.length} position{positions.length > 1 ? 's' : ''} to find correlations, risks, and hedging opportunities.</span>
-        <button className="pa-run-btn" onClick={runAnalysis}>Analyze Portfolio</button>
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (loading || (!analysis && !error)) {
     return (
       <div className="it-state">
         <div className="it-spinner" />

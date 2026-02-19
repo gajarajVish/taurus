@@ -102,21 +102,47 @@ body {
   min-width: 0;
 }
 
-.user-avatar {
-  width: 30px;
-  height: 30px;
+.sidecar-logo {
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1a1c20, #2a2d32);
+  background: #000;
   display: flex;
-  justify-content: center;
   align-items: center;
-  font-size: 12px;
-  font-weight: 700;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.sidecar-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 2px;
+}
+
+.header-address {
+  font-size: 13px;
+  font-weight: 600;
+  color: #22c55e;
+  user-select: none;
+}
+
+.disconnect-wallet-btn {
+  background: transparent;
   color: var(--color-text-secondary);
   border: 1px solid var(--color-border);
-  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
-.user-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+.disconnect-wallet-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-text-tertiary);
+  background: rgba(255, 255, 255, 0.06);
+}
 
 .header-right {
   display: flex;

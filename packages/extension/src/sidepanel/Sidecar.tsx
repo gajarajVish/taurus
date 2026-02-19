@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Header } from './components/Header';
 import { MetricsCard } from './components/MetricsCard';
 import { PositionsCard } from './components/PositionsCard';
-import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
 import { InsightsTab } from './components/InsightsTab';
 import { PortfolioTab } from './components/PortfolioTab';
@@ -75,7 +74,6 @@ function toPortfolioPositions(positions: Position[]): PortfolioPosition[] {
 }
 
 export function Sidecar() {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
     const [activeTab, setActiveTab] = useState('dashboard');
     const [positions, setPositions] = useState<DisplayPosition[]>([]);
@@ -265,7 +263,9 @@ export function Sidecar() {
     };
 
     const handleDisconnectWallet = () => {
-        chrome.runtime.sendMessage({ type: 'DISCONNECT_WALLET' });
+        chrome.runtime.sendMessage({ type: 'DISCONNECT_WALLET' }, () => {
+            setWalletState({ connected: false, address: null, chainId: null });
+        });
     };
 
     const handleConfirmExit = (exit: PendingExit) => {
@@ -309,7 +309,6 @@ export function Sidecar() {
                 address={walletState.address}
                 onConnectWallet={handleConnectWallet}
                 onDisconnectWallet={handleDisconnectWallet}
-                onMenuToggle={() => setIsMenuOpen(true)}
             />
 
             <Tabs
@@ -377,8 +376,6 @@ export function Sidecar() {
                     </div>
                 )}
             </div>
-
-            <SlideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
 
             {buySelection && walletState.address && (
                 <BuyModal

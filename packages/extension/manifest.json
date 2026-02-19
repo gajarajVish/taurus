@@ -19,7 +19,12 @@
   ],
   "action": {
     "default_title": "Taurus",
-    "default_popup": "src/popup/index.html"
+    "default_popup": "src/popup/index.html",
+    "default_icon": {
+      "16": "taurus_logo_inverted.png",
+      "48": "taurus_logo_inverted.png",
+      "128": "taurus_logo_inverted.png"
+    }
   },
   "background": {
     "service_worker": "src/background/index.ts",
@@ -43,7 +48,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "assets/*"
+        "assets/*",
+        "taurus_logo_inverted.png"
       ],
       "matches": [
         "https://x.com/*",

@@ -25,13 +25,20 @@ export function Popup() {
   const handleOpenSidecar = () => {
     if (activeTabId) {
       (chrome.sidePanel as any).open({ tabId: activeTabId });
+      // Close popup so both are not open; small delay so side panel open is processed first
+      setTimeout(() => window.close(), 0);
     }
   };
+
+  const logoUrl = chrome.runtime.getURL('taurus_logo_inverted.png');
 
   return (
     <div className="popup-container">
       <header className="popup-header">
-        <h1>Taurus</h1>
+        <div className="popup-header-brand">
+          <img src={logoUrl} alt="Taurus" className="popup-logo" />
+          <h1>Taurus</h1>
+        </div>
         <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </div>
@@ -89,7 +96,9 @@ function WalletCard({ isOnXPage, activeTabId }: { isOnXPage: boolean; activeTabI
   };
 
   const handleDisconnect = () => {
-    chrome.runtime.sendMessage({ type: 'DISCONNECT_WALLET' });
+    chrome.runtime.sendMessage({ type: 'DISCONNECT_WALLET' }, () => {
+      setWalletState({ connected: false, address: null, chainId: null });
+    });
   };
 
   return (

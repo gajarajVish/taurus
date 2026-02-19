@@ -52,6 +52,22 @@ body {
   background: #0060d8;
 }
 
+.popup-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.popup-logo {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+  background: #000;
+  border-radius: 6px;
+  padding: 2px;
+  box-sizing: content-box;
+}
+
 .popup-header h1 {
   font-size: 18px;
   font-weight: 600;
