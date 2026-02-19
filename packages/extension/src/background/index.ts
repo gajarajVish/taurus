@@ -1,11 +1,29 @@
-// Background service worker for PolyOverlay extension
+// Background service worker for Taurus extension
+
+// Generate a unique install ID for this extension instance
+function generateInstallId(): string {
+  return 'taurus_' + crypto.randomUUID();
+}
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('PolyOverlay extension installed');
+  console.log('Taurus extension installed');
+
+  // Generate install ID if not already set
+  chrome.storage.local.get(['installId'], (result) => {
+    if (!result.installId) {
+      const installId = generateInstallId();
+      chrome.storage.local.set({ installId });
+      console.log('Generated new install ID:', installId);
+    }
+  });
 
   // Set default settings
   chrome.storage.local.set({
     overlayEnabled: true,
+    // AI insights settings
+    aiInsightsEnabled: true,
+    aiMinTweetCount: 3,
+    aiMinSentimentScore: 0.6,
   });
 
   // Popup is the primary action; side panel opened from within the popup
@@ -41,7 +59,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             });
             ethereum = (window as any).ethereum;
           }
-          console.log('[PolyOverlay] window.ethereum:', ethereum);
+          console.log('[Taurus] window.ethereum:', ethereum);
           if (!ethereum) {
             return { success: false, error: 'No Web3 wallet detected. Install MetaMask at metamask.io and reload X.com.' };
           }
@@ -121,6 +139,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         volume: 2450,
         streak: 7,
       },
+    });
+    return true;
+  }
+
+  if (message.type === 'GET_INSTALL_ID') {
+    chrome.storage.local.get(['installId'], (result) => {
+      if (result.installId) {
+        sendResponse({ success: true, installId: result.installId });
+      } else {
+        // Generate one if missing (shouldn't happen normally)
+        const installId = generateInstallId();
+        chrome.storage.local.set({ installId }, () => {
+          sendResponse({ success: true, installId });
+        });
+      }
     });
     return true;
   }

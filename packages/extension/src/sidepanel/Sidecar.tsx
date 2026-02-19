@@ -4,6 +4,7 @@ import { MetricsCard } from './components/MetricsCard';
 import { PositionsCard } from './components/PositionsCard';
 import { SlideMenu } from './components/SlideMenu';
 import { Tabs } from './components/Tabs';
+import { InsightsTab } from './components/InsightsTab';
 import { getWalletState, type WalletState } from '../lib/wallet';
 
 export function Sidecar() {
@@ -56,6 +57,7 @@ export function Sidecar() {
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard' },
+        { id: 'insights', label: 'AI Insights' },
         { id: 'activity', label: 'Activity' },
         { id: 'markets', label: 'Markets' },
     ];
@@ -66,7 +68,7 @@ export function Sidecar() {
             if (!tab?.id) return;
             chrome.runtime.sendMessage({ type: 'CONNECT_WALLET', tabId: tab.id }, (response) => {
                 if (!response?.success) {
-                    console.warn('[PolyOverlay] Wallet connect failed:', response?.error);
+                    console.warn('[Taurus] Wallet connect failed:', response?.error);
                 }
             });
         });
@@ -101,6 +103,12 @@ export function Sidecar() {
                             streak={mockMetrics.streak}
                         />
                         <PositionsCard positions={mockPositions} />
+                    </div>
+                )}
+
+                {activeTab === 'insights' && (
+                    <div className="animate-fade-in">
+                        <InsightsTab />
                     </div>
                 )}
 

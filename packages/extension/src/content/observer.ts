@@ -24,7 +24,7 @@ export class TweetObserver {
       return;
     }
 
-    console.log('[PolyOverlay] Starting observer with selector:', TWEET_SELECTOR);
+    console.log('[Taurus] Starting observer with selector:', TWEET_SELECTOR);
 
     // Initial check
     this.checkForTweets();
@@ -66,12 +66,12 @@ export class TweetObserver {
     const tweets = document.querySelectorAll(TWEET_SELECTOR);
     if (tweets.length > 0) {
         // Only log if we find something to avoid spamming poll logs
-        // console.log(`[PolyOverlay] Polling/Check found ${tweets.length} tweets`);
+        // console.log(`[Taurus] Polling/Check found ${tweets.length} tweets`);
     }
     
     tweets.forEach((tweet) => {
       if (!this.processedTweets.has(tweet)) {
-        console.log('[PolyOverlay] New tweet found via poll/check', tweet);
+        console.log('[Taurus] New tweet found via poll/check', tweet);
         this.processedTweets.add(tweet);
         this.config.onTweetAdded?.(tweet);
       }

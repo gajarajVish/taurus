@@ -21,7 +21,7 @@ npm run type-check   # Type check
 ## Usage
 
 ```typescript
-import { Market, TradeRequest, WalletState } from '@polyoverlay/types';
+import { Market, TradeRequest, WalletState } from '@taurus/types';
 ```
 
 ## File Structure

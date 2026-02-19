@@ -2,29 +2,39 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { marketsPlugin } from './routes/markets.js';
 import { matchPlugin } from './routes/match.js';
+import { tweetsPlugin } from './routes/tweets.js';
+import { insightsPlugin } from './routes/insights.js';
+import { demoPlugin } from './routes/demo.js';
+import { getOGStatus } from './services/og/inference.js';
 
 export async function createServer() {
   const server = Fastify({
     logger: true,
   });
 
-  // Enable CORS for extension
-  await server.register(cors, {
-    origin: true,
-  });
+  await server.register(cors, { origin: true });
 
-  // Health check
   server.get('/health', async () => {
-    return { status: 'ok', timestamp: new Date().toISOString() };
+    const ogStatus = await getOGStatus();
+    return {
+      status: 'ok',
+      og: {
+        connected: ogStatus.brokerConnected,
+        ledgerFunded: ogStatus.ledgerFunded,
+        mode: ogStatus.mode,
+        services: ogStatus.servicesAvailable,
+        wallet: ogStatus.walletAddress,
+      },
+      timestamp: new Date().toISOString(),
+    };
   });
 
-  // Real market routes (fetches live data from Polymarket Gamma API)
   await server.register(marketsPlugin);
-
-  // Tweet-to-market keyword matching
   await server.register(matchPlugin);
+  await server.register(tweetsPlugin);
+  await server.register(insightsPlugin);
+  await server.register(demoPlugin);
 
-  // Stub placeholders — to be implemented in future iterations
   server.get('/api/positions', async () => {
     return { message: 'Positions endpoint - to be implemented' };
   });

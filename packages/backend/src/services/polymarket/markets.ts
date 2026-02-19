@@ -1,6 +1,6 @@
 import { config } from '../../config/index.js';
 import { fetchMarketsRaw, fetchAllMarketsRaw, fetchMarketRaw, type GammaMarket } from './client.js';
-import type { Market, MarketStatus } from '@polyoverlay/types';
+import type { Market, MarketStatus } from '@taurus/types';
 
 // ── Normalizer ─────────────────────────────────────────────────────────────
 
@@ -112,3 +112,6 @@ export async function fetchMarket(conditionId: string): Promise<Market | null> {
   if (found) setCached(cacheKey, found);
   return found;
 }
+
+// Alias for consistency with other services
+export const getMarket = fetchMarket;

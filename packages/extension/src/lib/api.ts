@@ -1,5 +1,13 @@
 // API client for communicating with the backend
-import type { Market, MatchResponse } from '@polyoverlay/types';
+import type {
+  Market,
+  MatchResponse,
+  RecordViewRequest,
+  RecordViewResponse,
+  GetInsightResponse,
+  Insight,
+  AIInsightsSettings,
+} from '@taurus/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -54,5 +62,26 @@ export const api = {
   // Trades
   trades: {
     submit: (trade: unknown) => request<unknown>('/api/trades', { method: 'POST', body: trade }),
+  },
+
+  // Tweet view recording (for AI analysis)
+  tweets: {
+    recordView: (data: RecordViewRequest) =>
+      request<RecordViewResponse>('/api/tweets/view', { method: 'POST', body: data }),
+  },
+
+  // AI Insights
+  insights: {
+    get: (marketId: string, installId: string) =>
+      request<GetInsightResponse>(`/api/insights/${marketId}?installId=${encodeURIComponent(installId)}`),
+    getAll: (installId: string) =>
+      request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
+    getSettings: (installId: string) =>
+      request<AIInsightsSettings>(`/api/insights/settings?installId=${encodeURIComponent(installId)}`),
+    updateSettings: (installId: string, settings: Partial<AIInsightsSettings>) =>
+      request<AIInsightsSettings>('/api/insights/settings', {
+        method: 'PUT',
+        body: { installId, settings },
+      }),
   },
 };

@@ -341,4 +341,107 @@ export const tweetButtonStyles = `
     font-weight: 600;
     font-family: monospace;
   }
+
+  /* ── AI Simulation Section ─────────────────────────────────────────────────── */
+
+  .ai-simulation-section {
+    border: 1px solid #2f3336;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .simulation-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: rgba(0, 114, 255, 0.08);
+    border: none;
+    color: #0072ff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.15s;
+  }
+
+  .simulation-toggle:hover {
+    background: rgba(0, 114, 255, 0.15);
+  }
+
+  .simulation-icon {
+    font-size: 16px;
+  }
+
+  .simulation-arrow {
+    margin-left: auto;
+    font-size: 10px;
+  }
+
+  .simulation-content {
+    padding: 14px;
+    background: rgba(0, 114, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid #2f3336;
+  }
+
+  .simulation-summary {
+    color: #e7e9ea;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .simulation-stats {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .simulation-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .simulation-stat-label {
+    color: #71767b;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .simulation-stat-value {
+    color: #e7e9ea;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .simulation-stat-value.bullish {
+    color: #22c55e;
+  }
+
+  .simulation-stat-value.bearish {
+    color: #ef4444;
+  }
+
+  .simulation-stat-value.neutral {
+    color: #71767b;
+  }
+
+  .simulation-risks {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    background: rgba(255, 181, 0, 0.1);
+    border-radius: 8px;
+  }
+
+  .risk-flag {
+    color: #ffb500;
+    font-size: 12px;
+  }
 `;

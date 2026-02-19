@@ -12,7 +12,7 @@ chrome.storage.local.get(['debugMode'], (result) => {
 
 function debugLog(...args: unknown[]) {
   if (debugMode) {
-    console.log('[PolyOverlay:Debug]', ...args);
+    console.log('[Taurus:Debug]', ...args);
   }
 }
 
@@ -118,12 +118,12 @@ export function detectTweet(tweetElement: Element): DetectedTweet | null {
     extractViaDataAttributes(tweetElement);
 
   if (!tweetId) {
-    console.warn('[PolyOverlay] Failed to extract tweet ID. Enable debug mode for details.');
+    console.warn('[Taurus] Failed to extract tweet ID. Enable debug mode for details.');
     debugLog('All strategies failed. Tweet HTML:', tweetElement.innerHTML.substring(0, 500));
     return null;
   }
 
-  console.log('[PolyOverlay] Tweet detected:', tweetId);
+  console.log('[Taurus] Tweet detected:', tweetId);
   return {
     element: tweetElement,
     tweetId,
