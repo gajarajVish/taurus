@@ -1,7 +1,7 @@
-// Background service worker for PolyOverlay extension
+// Background service worker for Taurus extension
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('PolyOverlay extension installed');
+  console.log('Taurus extension installed');
 
   // Set default settings
   chrome.storage.local.set({

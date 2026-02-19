@@ -31,7 +31,7 @@ export function Popup() {
   return (
     <div className="popup-container">
       <header className="popup-header">
-        <h1>PolyOverlay</h1>
+        <h1>Taurus</h1>
         <div className={`status-indicator ${isConnected ? 'connected' : 'disconnected'}`}>
           {isConnected ? 'Connected' : 'Disconnected'}
         </div>

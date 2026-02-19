@@ -64,11 +64,11 @@ export async function injectTweetButtons(
     );
 
     injectedTweets.set(tweetElement, { container, root: reactRoot });
-    console.log('[PolyOverlay] Injected widget for tweet', tweetId, '—', match.question);
+    console.log('[Taurus] Injected widget for tweet', tweetId, '—', match.question);
   } catch (err) {
     // Swallow all errors — backend may not be running, network may fail.
     // The extension must never crash the host page.
-    console.warn('[PolyOverlay] Widget injection skipped:', (err as Error).message);
+    console.warn('[Taurus] Widget injection skipped:', (err as Error).message);
   }
 }
 

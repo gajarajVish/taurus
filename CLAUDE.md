@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Product Overview
 
-PolyOverlay is a Chrome extension that brings Polymarket prediction markets directly into X.com (Twitter). Users can view market odds and place trades without leaving their feed.
+Taurus is a Chrome extension that brings Polymarket prediction markets directly into X.com (Twitter). Users can view market odds and place trades without leaving their feed.
 
 **Target Users:**
 - **Guests**: X users who want to "test their takes" with simulated PolyPoints
@@ -24,7 +24,7 @@ packages/
 ├── backend/        # API server (Fastify + TypeScript)
 ├── website/        # Standalone website (future)
 └── shared/
-    ├── types/      # Shared TypeScript types (@polyoverlay/types)
+    ├── types/      # Shared TypeScript types (@taurus/types)
     └── utils/      # Shared utilities (future)
 ```
 

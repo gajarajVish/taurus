@@ -83,7 +83,7 @@ export function Sidecar() {
                 setMetrics(deriveMetrics(rawPositions));
             })
             .catch((err) => {
-                console.warn('[PolyOverlay] Failed to fetch positions:', err);
+                console.warn('[Taurus] Failed to fetch positions:', err);
                 setPositionsError((err as Error).message ?? 'Failed to load positions');
             })
             .finally(() => setPositionsLoading(false));
@@ -101,7 +101,7 @@ export function Sidecar() {
             if (!tab?.id) return;
             chrome.runtime.sendMessage({ type: 'CONNECT_WALLET', tabId: tab.id }, (response) => {
                 if (!response?.success) {
-                    console.warn('[PolyOverlay] Wallet connect failed:', response?.error);
+                    console.warn('[Taurus] Wallet connect failed:', response?.error);
                 }
             });
         });

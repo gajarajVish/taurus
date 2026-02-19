@@ -152,7 +152,7 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
               Connect your wallet to place real trades.
             </p>
             <p className="wallet-gate-hint">
-              Open the PolyOverlay popup to connect MetaMask.
+              Open the Taurus popup to connect MetaMask.
             </p>
           </div>
         ) : tradeState === 'success' ? (
