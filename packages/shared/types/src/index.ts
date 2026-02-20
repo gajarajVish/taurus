@@ -5,3 +5,4 @@ export * from './markets.js';
 export * from './positions.js';
 export * from './trades.js';
 export * from './insights.js';
+export * from './swap.js';

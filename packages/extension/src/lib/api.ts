@@ -1,5 +1,5 @@
 // API client for communicating with the backend
-import type { Market, MatchResponse, Position, GetInsightResponse, Insight, RecordViewRequest, RecordViewResponse, PortfolioAnalysisRequest, PortfolioAnalysisResponse, AutoExitConfig, AutoSyncRequest, AutoSyncResponse, PendingExit } from '@taurus/types';
+import type { Market, MatchResponse, Position, GetInsightResponse, Insight, RecordViewRequest, RecordViewResponse, PortfolioAnalysisRequest, PortfolioAnalysisResponse, AutoExitConfig, AutoSyncRequest, AutoSyncResponse, PendingExit, CheckApprovalRequest, CheckApprovalResponse, SwapQuoteRequest, SwapQuoteResponse, SwapOrderRequest, SwapOrderResponse, SentimentSwapRequest, SentimentSwapResponse } from '@taurus/types';
 
 const API_BASE_URL = 'http://localhost:3000';
 
@@ -75,6 +75,18 @@ export const api = {
       request<{ insights: Insight[] }>(`/api/insights?installId=${encodeURIComponent(installId)}`),
     analyzePortfolio: (body: PortfolioAnalysisRequest) =>
       request<PortfolioAnalysisResponse>('/api/insights/portfolio', { method: 'POST', body }),
+  },
+
+  // Swap (Uniswap)
+  swap: {
+    checkApproval: (body: CheckApprovalRequest) =>
+      request<CheckApprovalResponse>('/api/swap/check-approval', { method: 'POST', body }),
+    quote: (body: SwapQuoteRequest) =>
+      request<SwapQuoteResponse>('/api/swap/quote', { method: 'POST', body }),
+    order: (body: SwapOrderRequest) =>
+      request<SwapOrderResponse>('/api/swap/order', { method: 'POST', body }),
+    sentimentSwap: (body: SentimentSwapRequest) =>
+      request<SentimentSwapResponse>('/api/swap/sentiment', { method: 'POST', body }),
   },
 
   // Automation

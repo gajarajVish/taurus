@@ -8,6 +8,7 @@ import { PortfolioTab } from './components/PortfolioTab';
 import { PendingExitBanner } from './components/PendingExitBanner';
 import { SellModal } from './components/SellModal';
 import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
+import { SwapTab } from './components/SwapTab';
 import { BuyModal } from './components/BuyModal';
 import { SlideMenu } from './components/SlideMenu';
 import { getWalletState, type WalletState } from '../lib/wallet';
@@ -250,6 +251,7 @@ export function Sidecar() {
         { id: 'insights', label: 'Insights' },
         { id: 'risk', label: 'Risk' },
         { id: 'markets', label: 'Markets' },
+        { id: 'swap', label: 'Swap' },
     ];
 
     const handleConnectWallet = () => {
@@ -376,6 +378,12 @@ export function Sidecar() {
                 {activeTab === 'markets' && (
                     <div className="animate-fade-in">
                         <TrendingMarketsTab onBuy={setBuySelection} />
+                    </div>
+                )}
+
+                {activeTab === 'swap' && (
+                    <div className="animate-fade-in">
+                        <SwapTab walletAddress={walletState.address} chainId={walletState.chainId} />
                     </div>
                 )}
             </div>

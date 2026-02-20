@@ -13,6 +13,10 @@ export const config = {
     privateKey: process.env.OG_COMPUTE_PRIVATE_KEY ?? '',
     rpcUrl: process.env.OG_RPC_URL ?? 'https://evmrpc-testnet.0g.ai',
   },
+  uniswap: {
+    apiKey: process.env.UNISWAP_API_KEY ?? '',
+    baseUrl: process.env.UNISWAP_API_URL ?? 'https://trade-api.gateway.uniswap.org/v1',
+  },
 } as const;
 
 export type Config = typeof config;

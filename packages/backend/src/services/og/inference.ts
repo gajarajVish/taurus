@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 const { createZGComputeNetworkBroker } = require('@0glabs/0g-serving-broker');
 type ZGComputeNetworkBroker = Awaited<ReturnType<typeof createZGComputeNetworkBroker>>;
 import { config } from '../../config/index.js';
-import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis, ActionableItem, Insight } from '@taurus/types';
+import type { Market, SentimentType, PortfolioPosition, PortfolioAnalysis, ActionableItem, Insight, SentimentSwapRecommendation, SwapToken } from '@taurus/types';
 
 export interface SentimentResult {
   sentiment: SentimentType;
@@ -564,6 +564,120 @@ export async function isOGAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ── Swap Sentiment Analysis ─────────────────────────────────────────────────
+
+const SWAP_TOKENS: Record<string, SwapToken> = {
+  ETH: { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', name: 'Ethereum', decimals: 18, chainId: 11155111 },
+  USDC: { address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', symbol: 'USDC', name: 'USD Coin', decimals: 6, chainId: 11155111 },
+  WETH: { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18, chainId: 11155111 },
+};
+
+function buildSwapSentimentPrompt(tweetText: string): string {
+  return `Analyze this tweet for crypto/token trading signals:
+
+Tweet: "${tweetText}"
+
+Based on the sentiment, recommend a token swap on Ethereum Sepolia testnet.
+Available tokens: ETH (native), USDC, WETH
+
+Respond ONLY with valid JSON:
+{
+  "sentiment": "bullish" or "bearish",
+  "tokenIn": "ETH" or "USDC" or "WETH",
+  "tokenOut": "ETH" or "USDC" or "WETH",
+  "rationale": "<1-2 sentence explanation>",
+  "confidence": <number 0-1>,
+  "suggestedAmountUSD": <number>
+}`;
+}
+
+function analyzeSwapSentimentLocal(tweetText: string): SentimentSwapRecommendation | null {
+  const text = tweetText.toLowerCase();
+  let bullishScore = 0;
+  let bearishScore = 0;
+
+  for (const signal of BULLISH_SIGNALS) {
+    if (text.includes(signal)) bullishScore++;
+  }
+  for (const signal of BEARISH_SIGNALS) {
+    if (text.includes(signal)) bearishScore++;
+  }
+
+  if (bullishScore === 0 && bearishScore === 0) return null;
+
+  const isBullish = bullishScore >= bearishScore;
+  const confidence = Math.min(0.85, 0.4 + Math.abs(bullishScore - bearishScore) * 0.1);
+
+  return {
+    tokenIn: isBullish ? SWAP_TOKENS.USDC : SWAP_TOKENS.ETH,
+    tokenOut: isBullish ? SWAP_TOKENS.ETH : SWAP_TOKENS.USDC,
+    rationale: isBullish
+      ? 'Bullish signals detected — swap USDC to ETH to ride upward momentum.'
+      : 'Bearish signals detected — swap ETH to USDC to reduce exposure.',
+    sentiment: isBullish ? 'bullish' : 'bearish',
+    confidence,
+    suggestedAmount: '25',
+    source: 'local',
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export async function analyzeSwapSentiment(tweetText: string): Promise<SentimentSwapRecommendation | null> {
+  if (config.og.privateKey && ledgerReady) {
+    try {
+      const broker = await getBroker();
+      const service = await findChatService(broker);
+      if (!service) throw new Error('No chat service');
+
+      const { endpoint, model } = await broker.inference.getServiceMetadata(service.provider);
+      const prompt = buildSwapSentimentPrompt(tweetText);
+      const headers = await broker.inference.getRequestHeaders(service.provider, prompt);
+
+      const response = await fetch(`${endpoint}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: 'You are a crypto trading signal analyst. Always respond with valid JSON only.' },
+            { role: 'user', content: prompt },
+          ],
+          model,
+          temperature: 0.3,
+          max_tokens: 300,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`0G inference failed: ${response.status}`);
+
+      const result = await response.json() as { choices: Array<{ message: { content: string } }> };
+      const content = result.choices?.[0]?.message?.content;
+      if (!content) throw new Error('Empty response');
+
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('No JSON in response');
+
+      const parsed = JSON.parse(jsonMatch[0]);
+      const tokenIn = SWAP_TOKENS[parsed.tokenIn as string] ?? SWAP_TOKENS.USDC;
+      const tokenOut = SWAP_TOKENS[parsed.tokenOut as string] ?? SWAP_TOKENS.ETH;
+
+      return {
+        tokenIn,
+        tokenOut,
+        rationale: typeof parsed.rationale === 'string' ? parsed.rationale : 'AI-generated swap recommendation.',
+        sentiment: parsed.sentiment === 'bearish' ? 'bearish' : 'bullish',
+        confidence: typeof parsed.confidence === 'number' ? Math.max(0, Math.min(1, parsed.confidence)) : 0.5,
+        suggestedAmount: typeof parsed.suggestedAmountUSD === 'number' ? String(parsed.suggestedAmountUSD) : '25',
+        source: '0g',
+        timestamp: new Date().toISOString(),
+      };
+    } catch (err) {
+      console.warn('[0G] Swap sentiment failed, falling back to local:', (err as Error).message);
+    }
+  }
+
+  return analyzeSwapSentimentLocal(tweetText);
 }
 
 // Used by automation monitor for exit signal evaluation via 0G

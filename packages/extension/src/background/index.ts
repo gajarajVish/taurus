@@ -600,6 +600,278 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // ── SWAP via Uniswap (from sidepanel SwapTab/SwapModal) ─────────────────
+  if (message.type === 'SWAP_EXECUTE') {
+    const { quote, walletAddress, chainId, tokenIn, tokenOut, amount, routing } = message.payload as {
+      quote: {
+        permit2Data?: Record<string, unknown>;
+        methodParameters?: { calldata?: string; value?: string; to?: string } | null;
+        routeData?: unknown;
+      };
+      walletAddress: string;
+      chainId: number;
+      tokenIn: string;
+      tokenOut: string;
+      amount: string;
+      routing: string;
+    };
+
+    const SWAP_CHAIN_ID = 11155111;
+    const SWAP_CHAIN_HEX = '0xAA36A7';
+
+    console.log('[Taurus:Swap] routing:', routing, 'permit2Data:', !!quote.permit2Data, 'methodParameters:', !!quote.methodParameters);
+
+    findXTab().then(async (tabId) => {
+      if (!tabId) {
+        sendResponse({ success: false, error: 'No X.com tab found. Please open X.com and try again.' });
+        return;
+      }
+
+      try {
+        // ── CLASSIC routing: execute swap as direct on-chain transaction ──
+        if (routing === 'CLASSIC') {
+          const mp = quote.methodParameters;
+
+          // Build tx params: use methodParameters if available, else construct
+          // a fallback call to Uniswap SwapRouter02 on Sepolia
+          let txTo: string;
+          let txData: string;
+          let txValue: string;
+
+          if (mp?.calldata && mp?.to) {
+            txTo = mp.to;
+            txData = mp.calldata;
+            txValue = mp.value || '0x0';
+          } else {
+            // Fallback: construct SwapRouter02 exactInputSingle call
+            // SwapRouter02 on Sepolia: 0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E
+            const SWAP_ROUTER_SEPOLIA = '0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E';
+            const WETH_SEPOLIA = '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14';
+            const ETH_ZERO = '0x0000000000000000000000000000000000000000';
+            const isNativeETHIn = tokenIn === ETH_ZERO;
+            const isNativeETHOut = tokenOut === ETH_ZERO;
+            const actualTokenIn = isNativeETHIn ? WETH_SEPOLIA : tokenIn;
+            const actualTokenOut = isNativeETHOut ? WETH_SEPOLIA : tokenOut;
+
+            // ABI-encode exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))
+            // selector: 0x04e45aaf
+            const pad = (hex: string) => hex.replace('0x', '').padStart(64, '0');
+            const amountHex = BigInt(amount).toString(16);
+
+            txData = '0x04e45aaf'
+              + pad(actualTokenIn)           // tokenIn
+              + pad(actualTokenOut)           // tokenOut
+              + pad('0x' + (3000).toString(16)) // fee: 3000 (0.3%)
+              + pad(walletAddress)           // recipient
+              + pad('0x' + amountHex)        // amountIn
+              + pad('0x0')                   // amountOutMinimum (0 for demo)
+              + pad('0x0');                  // sqrtPriceLimitX96 (0 = no limit)
+
+            txTo = SWAP_ROUTER_SEPOLIA;
+            txValue = isNativeETHIn ? '0x' + BigInt(amount).toString(16) : '0x0';
+            console.log('[Taurus:Swap] Using fallback SwapRouter02 call', { txTo, txValue, actualTokenIn, actualTokenOut });
+          }
+
+          const [txResult] = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            args: [walletAddress, txTo, txData, txValue, SWAP_CHAIN_HEX, SWAP_CHAIN_ID],
+            func: async (from: string, to: string, data: string, value: string, chainHex: string, targetChainId: number) => {
+              const ethereum = (window as any).ethereum;
+              if (!ethereum) return { success: false, error: 'No wallet detected' };
+
+              // Switch to Sepolia
+              let currentChainId = parseInt(await ethereum.request({ method: 'eth_chainId' }) as string, 16);
+              if (currentChainId !== targetChainId) {
+                try {
+                  await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: chainHex }] });
+                } catch (switchErr: any) {
+                  if (switchErr.code === 4902) {
+                    await ethereum.request({
+                      method: 'wallet_addEthereumChain',
+                      params: [{
+                        chainId: chainHex,
+                        chainName: 'Ethereum Sepolia',
+                        nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://rpc.sepolia.org'],
+                        blockExplorerUrls: ['https://sepolia.etherscan.io/'],
+                      }],
+                    });
+                  } else {
+                    return { success: false, error: 'Please switch to Ethereum Sepolia.' };
+                  }
+                }
+              }
+
+              try {
+                const txHash = await ethereum.request({
+                  method: 'eth_sendTransaction',
+                  params: [{ from, to, data, value, gas: '0x7A120' }], // gas limit: 500,000
+                });
+                return { success: true, txHash };
+              } catch (err: any) {
+                return { success: false, error: (err as Error).message };
+              }
+            },
+          });
+
+          const txResultData = txResult.result as { success: boolean; txHash?: string; error?: string } | null;
+          if (txResultData?.success) {
+            sendResponse({ success: true, data: { txHash: txResultData.txHash, status: 'pending' } });
+          } else {
+            sendResponse({ success: false, error: txResultData?.error ?? 'Transaction failed' });
+          }
+          return;
+        }
+
+        // ── DUTCH_LIMIT / UniswapX routing: Permit2 sign + order submission ──
+
+        // Step 1: Check approval
+        const checkResp = await fetch(`${API_BASE}/api/swap/check-approval`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: tokenIn, amount, walletAddress, chainId }),
+        });
+        const checkData = await checkResp.json() as { approval: unknown | null };
+
+        // Step 2: If approval needed, send approval tx
+        if (checkData.approval) {
+          const [approvalResult] = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            args: [walletAddress, tokenIn, SWAP_CHAIN_HEX, SWAP_CHAIN_ID],
+            func: async (walletAddress: string, tokenAddress: string, sepoliaHex: string, sepoliaChainId: number) => {
+              const ethereum = (window as any).ethereum;
+              if (!ethereum) return { success: false, error: 'No wallet detected' };
+
+              // Switch to Sepolia
+              let currentChainId = parseInt(await ethereum.request({ method: 'eth_chainId' }) as string, 16);
+              if (currentChainId !== sepoliaChainId) {
+                try {
+                  await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: sepoliaHex }] });
+                } catch (switchErr: any) {
+                  if (switchErr.code === 4902) {
+                    await ethereum.request({
+                      method: 'wallet_addEthereumChain',
+                      params: [{
+                        chainId: sepoliaHex,
+                        chainName: 'Ethereum Sepolia',
+                        nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: ['https://rpc.sepolia.org'],
+                        blockExplorerUrls: ['https://sepolia.etherscan.io/'],
+                      }],
+                    });
+                  } else {
+                    return { success: false, error: 'Please switch to Ethereum Sepolia.' };
+                  }
+                }
+              }
+
+              // Approval tx (approve Permit2 contract for the token)
+              const PERMIT2_ADDRESS = '0x000000000022D473030F116dDEE9F6B43aC78BA3';
+              const MAX_UINT256 = '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
+              const approveData = '0x095ea7b3' +
+                PERMIT2_ADDRESS.slice(2).padStart(64, '0') +
+                MAX_UINT256.slice(2);
+
+              try {
+                const txHash = await ethereum.request({
+                  method: 'eth_sendTransaction',
+                  params: [{ from: walletAddress, to: tokenAddress, data: approveData }],
+                });
+                return { success: true, txHash };
+              } catch (err: any) {
+                return { success: false, error: (err as Error).message };
+              }
+            },
+          });
+
+          const approvalData = approvalResult.result as { success: boolean; error?: string } | null;
+          if (!approvalData?.success) {
+            sendResponse({ success: false, error: approvalData?.error ?? 'Approval failed' });
+            return;
+          }
+        }
+
+        // Step 3: Sign Permit2 EIP-712 data
+        const rawPermit2 = quote.permit2Data;
+        let signature = '';
+        console.log('[Taurus:Swap] permit2Data present:', !!rawPermit2);
+
+        if (rawPermit2) {
+          // Uniswap returns "values" but eth_signTypedData_v4 expects "message"
+          const permit2Data = { ...rawPermit2 };
+          if (permit2Data.values && !permit2Data.message) {
+            permit2Data.message = permit2Data.values;
+            delete permit2Data.values;
+          }
+
+          const [signResult] = await chrome.scripting.executeScript({
+            target: { tabId },
+            world: 'MAIN',
+            args: [JSON.stringify(permit2Data), walletAddress, SWAP_CHAIN_HEX, SWAP_CHAIN_ID],
+            func: async (permit2Json: string, walletAddress: string, sepoliaHex: string, sepoliaChainId: number) => {
+              const ethereum = (window as any).ethereum;
+              if (!ethereum) return { success: false, error: 'No wallet detected' };
+
+              // Ensure on Sepolia
+              let currentChainId = parseInt(await ethereum.request({ method: 'eth_chainId' }) as string, 16);
+              if (currentChainId !== sepoliaChainId) {
+                try {
+                  await ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: sepoliaHex }] });
+                } catch {
+                  return { success: false, error: 'Please switch to Ethereum Sepolia.' };
+                }
+              }
+
+              try {
+                const sig = await ethereum.request({
+                  method: 'eth_signTypedData_v4',
+                  params: [walletAddress, permit2Json],
+                });
+                return { success: true, signature: sig };
+              } catch (err: any) {
+                return { success: false, error: (err as Error).message };
+              }
+            },
+          });
+
+          const signData = signResult.result as { success: boolean; signature?: string; error?: string } | null;
+          if (!signData?.success || !signData.signature) {
+            sendResponse({ success: false, error: signData?.error ?? 'Permit2 signing failed' });
+            return;
+          }
+          signature = signData.signature;
+        }
+
+        // Step 4: Submit order to backend
+        const orderResp = await fetch(`${API_BASE}/api/swap/order`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ quote: quote.routeData, signature, chainId }),
+        });
+        const orderData = await orderResp.json() as Record<string, unknown>;
+        console.log('[Taurus:Swap] Order response:', orderResp.status, JSON.stringify(orderData));
+
+        if (orderResp.ok) {
+          sendResponse({ success: true, data: orderData });
+        } else {
+          const errMsg = (orderData.detail as string)
+            || (orderData.errorCode as string)
+            || (orderData.error as string)
+            || (orderData.message as string)
+            || JSON.stringify(orderData);
+          sendResponse({ success: false, error: `Order failed: ${errMsg}` });
+        }
+      } catch (err) {
+        sendResponse({ success: false, error: (err as Error).message });
+      }
+    }).catch((err: Error) => {
+      sendResponse({ success: false, error: err.message });
+    });
+    return true;
+  }
+
   // ── SELL order (from sidepanel SellModal) ───────────────────────────────
   if (message.type === 'SIGN_AND_SELL') {
     const { tokenId, price, amount, address } = message.payload as {
