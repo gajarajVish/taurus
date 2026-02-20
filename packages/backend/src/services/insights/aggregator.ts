@@ -63,6 +63,7 @@ export async function triggerAnalysis(
 
   try {
     const tweets = viewStore.getTweetTexts(installId, marketId);
+    const tweetViews = viewStore.getTweetViews(installId, marketId);
     if (tweets.length === 0) {
       console.warn(`[Aggregator] No tweets found for ${key}`);
       return null;
@@ -80,11 +81,17 @@ export async function triggerAnalysis(
 
     const insight: Insight = {
       marketId,
+      marketQuestion: market.question,
       summary: result.explainableSummary,
       sentiment: result.sentiment,
       score: result.score,
       consensusShift: result.consensusShift,
       tweetCount: tweets.length,
+      sourceTweets: tweetViews.map((tv) => ({
+        tweetId: tv.tweetId,
+        text: tv.tweetText,
+        timestamp: new Date(tv.timestamp).toISOString(),
+      })),
       riskFlags: result.riskFlags,
       opportunityScore: result.opportunityScore,
       timestamp: new Date().toISOString(),
@@ -187,6 +194,7 @@ export async function scanTopMarkets(): Promise<number> {
 
         const insight: Insight = {
           marketId: market.id,
+          marketQuestion: market.question,
           summary: result.explainableSummary,
           sentiment: result.sentiment,
           score: result.score,

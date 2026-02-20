@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import type { Market } from '@taurus/types';
 import { getWalletState, shortAddress, type WalletState } from '../../lib/wallet';
 
@@ -12,23 +12,63 @@ const AMOUNT_PRESETS = [10, 25, 50, 100];
 
 type TradeState = 'idle' | 'signing' | 'submitting' | 'success' | 'error';
 
+/** Fetch wallet state from background (works when content script context is invalidated). */
+function getWalletStateFromBackground(): Promise<WalletState> {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: 'GET_WALLET_STATE' }, (response: { success?: boolean; data?: WalletState } | undefined) => {
+        if (chrome.runtime.lastError) {
+          resolve({ connected: false, address: null, chainId: null });
+          return;
+        }
+        if (response?.success && response.data) {
+          resolve(response.data);
+        } else {
+          resolve({ connected: false, address: null, chainId: null });
+        }
+      });
+    } catch {
+      resolve({ connected: false, address: null, chainId: null });
+    }
+  });
+}
+
 export function TradeModal({ market, side, onClose }: TradeModalProps) {
   const [amount, setAmount] = useState<string>('25');
   const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
   const [tradeState, setTradeState] = useState<TradeState>('idle');
   const [tradeError, setTradeError] = useState<string | null>(null);
 
-  useEffect(() => {
-    getWalletState().then(setWalletState);
-
-    const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
-      if (area === 'local' && changes.walletState) {
-        setWalletState(changes.walletState.newValue ?? { connected: false, address: null, chainId: null });
-      }
-    };
-    chrome.storage.onChanged.addListener(listener);
-    return () => chrome.storage.onChanged.removeListener(listener);
+  const refreshWalletState = useCallback(() => {
+    getWalletStateFromBackground().then(setWalletState);
   }, []);
+
+  useEffect(() => {
+    const defaultState: WalletState = { connected: false, address: null, chainId: null };
+    const applyState = (state: WalletState) => setWalletState(state);
+
+    getWalletState()
+      .then(applyState)
+      .catch(() => {
+        getWalletStateFromBackground().then(applyState);
+      });
+
+    try {
+      const listener = (changes: Record<string, chrome.storage.StorageChange>, area: string) => {
+        if (area === 'local' && changes.walletState) {
+          setWalletState(changes.walletState.newValue ?? defaultState);
+        }
+      };
+      chrome.storage.onChanged.addListener(listener);
+      return () => chrome.storage.onChanged.removeListener(listener);
+    } catch {
+      return undefined;
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshWalletState();
+  }, [refreshWalletState]);
 
   const price = side === 'YES'
     ? parseFloat(market.yesPrice)
@@ -146,7 +186,7 @@ export function TradeModal({ market, side, onClose }: TradeModalProps) {
           </span>
         </div>
 
-        {!walletState.connected ? (
+        {!walletState.connected && !walletState.address ? (
           <div className="wallet-gate">
             <p className="wallet-gate-message">
               Connect your wallet to place real trades.

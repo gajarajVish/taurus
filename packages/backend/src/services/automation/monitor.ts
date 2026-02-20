@@ -81,8 +81,25 @@ export function checkThresholds(
   return triggered;
 }
 
+export function getRegisteredPositions(installId: string): SyncedPosition[] {
+  const state = users.get(installId);
+  return state?.positions ?? [];
+}
+
+export function getRegisteredConfig(installId: string): AutoExitConfig | null {
+  const state = users.get(installId);
+  return state?.config ?? null;
+}
+
+export function queuePendingExit(installId: string, exit: PendingExit): void {
+  const state = users.get(installId);
+  if (state) {
+    state.pendingExits.set(exit.positionId, exit);
+  }
+}
+
 // Send to 0G for evaluation — adds context and filtering
-async function evaluateWithAI(
+export async function evaluateWithAI(
   position: SyncedPosition,
   rule: AutoExitRule
 ): Promise<{ confirm: boolean; reasoning: string; confidence: number }> {

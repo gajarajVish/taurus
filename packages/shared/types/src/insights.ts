@@ -2,13 +2,21 @@
 
 export type SentimentType = 'bullish' | 'bearish' | 'neutral';
 
+export interface SourceTweet {
+  tweetId: string;
+  text: string;
+  timestamp: string;          // ISO-8601
+}
+
 export interface Insight {
   marketId: string;
+  marketQuestion: string;
   summary: string;
   sentiment: SentimentType;
   score: number;              // 0-1 confidence score
   consensusShift: number;     // estimated probability shift (-1 to 1)
   tweetCount: number;
+  sourceTweets?: SourceTweet[]; // tweets used to generate this insight (absent for global/synthetic insights)
   riskFlags: string[];
   opportunityScore: number;   // 0-1 opportunity rating
   timestamp: string;          // ISO-8601

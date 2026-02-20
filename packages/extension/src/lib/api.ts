@@ -87,5 +87,21 @@ export const api = {
       request<{ pendingExits: PendingExit[] }>(`/api/automation/pending?installId=${encodeURIComponent(installId)}`),
     dismiss: (installId: string, positionId: string) =>
       request<{ success: boolean }>('/api/automation/dismiss', { method: 'POST', body: { installId, positionId } }),
+    testExit: (body: {
+      installId: string;
+      positionId: string;
+      overrides: { currentPrice?: number; pnlPercent?: number };
+      persist?: boolean;
+    }) =>
+      request<{
+        triggered: boolean;
+        triggeredRule?: unknown;
+        testPosition?: unknown;
+        aiResult?: { confirm: boolean; reasoning: string; confidence: number };
+        pendingExit?: PendingExit;
+        persisted?: boolean;
+        message?: string;
+        rules?: unknown;
+      }>('/api/automation/test-exit', { method: 'POST', body }),
   },
 };

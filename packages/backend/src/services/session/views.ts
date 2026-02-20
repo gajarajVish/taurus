@@ -3,7 +3,7 @@
 
 import type { AIInsightsSettings } from '@taurus/types';
 
-interface TweetView {
+export interface TweetView {
   tweetId: string;
   tweetText: string;
   timestamp: number;
@@ -131,6 +131,19 @@ export function getTweetTexts(installId: string, marketId: string): string[] {
   return marketSession.tweetViews
     .sort((a, b) => b.timestamp - a.timestamp)
     .map((v) => v.tweetText);
+}
+
+// Get full TweetView objects for a user/market (for preserving source tweet metadata)
+export function getTweetViews(installId: string, marketId: string): TweetView[] {
+  const userSession = sessions.get(installId);
+  if (!userSession) return [];
+
+  const marketSession = userSession.markets.get(marketId);
+  if (!marketSession) return [];
+
+  return marketSession.tweetViews
+    .slice()
+    .sort((a, b) => b.timestamp - a.timestamp);
 }
 
 // Get all market IDs with pending views for a user

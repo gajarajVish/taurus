@@ -163,8 +163,8 @@ export function Sidecar() {
         const source = positionsToRefresh ?? localPositions;
         if (source.length === 0) return;
 
-        // Fetch midpoint for each unique token (outcomeId)
-        const tokenIds = [...new Set(source.map((p) => p.outcomeId))];
+        // Fetch midpoint for each unique token (outcomeId); skip empty/invalid ids
+        const tokenIds = [...new Set(source.map((p) => p.outcomeId).filter(Boolean))];
         const tokenPrices = new Map<string, number>();
 
         await Promise.all(
@@ -176,7 +176,10 @@ export function Sidecar() {
                         tokenPrices.set(tokenId, mid);
                     }
                 } catch (err) {
-                    console.warn('[Taurus] Failed to fetch midpoint for token', tokenId, err);
+                    const msg = (err as Error)?.message ?? '';
+                    if (!msg.includes('502')) {
+                        console.warn('[Taurus] Failed to fetch midpoint for token', tokenId, err);
+                    }
                 }
             })
         );
@@ -356,7 +359,7 @@ export function Sidecar() {
 
                 {activeTab === 'insights' && (
                     <div className="animate-fade-in">
-                        <InsightsTab />
+                        <InsightsTab positions={[...localPositions.map(mapPosition), ...positions]} />
                     </div>
                 )}
 

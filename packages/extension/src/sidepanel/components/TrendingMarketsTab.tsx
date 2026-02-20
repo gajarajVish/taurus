@@ -49,7 +49,7 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
     try {
       // Fetch extra to account for non-binary markets being filtered out
       const data = await api.markets.list({ limit: 50, active: true });
-      setMarkets(data.filter(isTradeable).slice(0, 20));
+      setMarkets(data.filter(isTradeable).slice(0, 10));
     } catch (err) {
       setError((err as Error).message ?? 'Failed to load markets');
     } finally {

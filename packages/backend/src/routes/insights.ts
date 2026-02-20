@@ -116,11 +116,13 @@ export const insightsPlugin: FastifyPluginAsync = async (server) => {
   // POST /api/insights/portfolio - Analyze portfolio for trends and hedging
   const InsightSchema = z.object({
     marketId: z.string(),
+    marketQuestion: z.string(),
     summary: z.string(),
     sentiment: z.enum(['bullish', 'bearish', 'neutral']),
     score: z.number(),
     consensusShift: z.number(),
     tweetCount: z.number(),
+    sourceTweets: z.array(z.object({ tweetId: z.string(), text: z.string(), timestamp: z.string() })).optional(),
     riskFlags: z.array(z.string()),
     opportunityScore: z.number(),
     timestamp: z.string(),

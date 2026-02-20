@@ -4,12 +4,14 @@ import { AutoExitEditor } from './AutoExitEditor';
 import { api } from '../../lib/api';
 import { getInstallId, getAISettings } from '../../lib/storage';
 import type { Insight } from '@taurus/types';
+import type { DisplayPosition } from '../Sidecar';
 
 interface InsightsTabProps {
   marketId?: string;
+  positions?: DisplayPosition[];
 }
 
-export function InsightsTab({ marketId }: InsightsTabProps) {
+export function InsightsTab({ marketId, positions = [] }: InsightsTabProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,12 @@ export function InsightsTab({ marketId }: InsightsTabProps) {
         setInsights(res.insight ? [res.insight] : []);
       } else {
         const res = await api.insights.getAll(installId);
-        setInsights(res.insights);
+        // Only show insights for markets where the user holds a position
+        const positionMarketIds = new Set(positions.map((p) => p.marketId));
+        const filtered = positionMarketIds.size > 0
+          ? res.insights.filter((i) => positionMarketIds.has(i.marketId))
+          : res.insights;
+        setInsights(filtered);
       }
     } catch (err) {
       console.error('[InsightsTab] Failed to fetch insights:', err);
@@ -39,7 +46,7 @@ export function InsightsTab({ marketId }: InsightsTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [marketId]);
+  }, [marketId, positions]);
 
   useEffect(() => {
     fetchInsights();
@@ -148,7 +155,12 @@ export function InsightsTab({ marketId }: InsightsTabProps) {
       </div>
       <div className="it-list">
         {insights.map((insight) => (
-          <InsightCard key={insight.marketId} insight={insight} onDismiss={() => handleDismiss(insight.marketId)} />
+          <InsightCard
+            key={insight.marketId}
+            insight={insight}
+            position={positions.find((p) => p.marketId === insight.marketId)}
+            onDismiss={() => handleDismiss(insight.marketId)}
+          />
         ))}
       </div>
     </div>

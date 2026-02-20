@@ -5,6 +5,11 @@ import {
   evaluateUser,
   getPendingExits,
   dismissExit,
+  getRegisteredPositions,
+  getRegisteredConfig,
+  checkThresholds,
+  evaluateWithAI,
+  queuePendingExit,
 } from '../services/automation/monitor.js';
 
 export async function automationPlugin(server: FastifyInstance) {
@@ -65,5 +70,90 @@ export async function automationPlugin(server: FastifyInstance) {
 
     const dismissed = dismissExit(installId, positionId);
     return { success: dismissed };
+  });
+
+  // Test auto-exit pipeline with overridden position data (for demo/testing)
+  server.post<{
+    Body: {
+      installId: string;
+      positionId: string;
+      overrides: { currentPrice?: number; pnlPercent?: number };
+      persist?: boolean;
+    };
+  }>('/api/automation/test-exit', async (request, reply) => {
+    const { installId, positionId, overrides, persist } = request.body;
+
+    if (!installId || !positionId) {
+      return reply.status(400).send({ error: 'Missing installId or positionId' });
+    }
+
+    const positions = getRegisteredPositions(installId);
+    const config = getRegisteredConfig(installId);
+
+    if (!config) {
+      return reply.status(404).send({ error: 'No registered config for this installId. Sync positions first.' });
+    }
+
+    const position = positions.find((p) => p.id === positionId);
+    if (!position) {
+      return reply.status(404).send({
+        error: `Position ${positionId} not found. Available: ${positions.map((p) => p.id).join(', ') || 'none'}`,
+      });
+    }
+
+    // Clone with overrides applied
+    const testPosition = {
+      ...position,
+      ...(overrides.currentPrice !== undefined ? { currentPrice: overrides.currentPrice } : {}),
+      ...(overrides.pnlPercent !== undefined ? { pnlPercent: overrides.pnlPercent } : {}),
+    };
+
+    const triggered = checkThresholds([testPosition], config.rules);
+
+    if (triggered.length === 0) {
+      return {
+        triggered: false,
+        message: 'No rules triggered with the given overrides.',
+        testPosition,
+        rules: config.rules.filter((r) => r.enabled),
+      };
+    }
+
+    const { rule } = triggered[0];
+    const aiResult = await evaluateWithAI(testPosition, rule);
+
+    let pendingExit: PendingExit | null = null;
+    if (aiResult.confirm) {
+      pendingExit = {
+        positionId: testPosition.id,
+        marketId: testPosition.marketId,
+        marketQuestion: testPosition.marketQuestion,
+        tokenId: testPosition.tokenId,
+        side: testPosition.side,
+        shares:
+          rule.action === 'exit_half'
+            ? (parseFloat(testPosition.shares) / 2).toString()
+            : testPosition.shares,
+        currentPrice: testPosition.currentPrice,
+        triggeredRule: rule,
+        aiReasoning: aiResult.reasoning,
+        aiConfidence: aiResult.confidence,
+        timestamp: new Date().toISOString(),
+      };
+
+      if (persist) {
+        queuePendingExit(installId, pendingExit);
+        console.log(`[TestExit] Queued pending exit for ${testPosition.marketQuestion}`);
+      }
+    }
+
+    return {
+      triggered: true,
+      triggeredRule: rule,
+      testPosition,
+      aiResult,
+      pendingExit,
+      persisted: persist && aiResult.confirm,
+    };
   });
 }
