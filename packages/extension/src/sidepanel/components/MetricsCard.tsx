@@ -27,7 +27,7 @@ export function MetricsCard({ pnl, volume, sparklineData }: MetricsCardProps) {
       <div className="dash-card">
         {/* P&L hero */}
         <div className={`dash-hero ${dir}`}>
-          <span className="dash-hero-lbl">Profit & Loss</span>
+          <span className="dash-hero-lbl">P&L</span>
           <div className="dash-hero-row">
             <span className="dash-hero-val">
               {pnlSign}${fmt(Math.abs(pnl))}
