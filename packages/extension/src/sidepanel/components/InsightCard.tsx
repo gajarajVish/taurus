@@ -49,7 +49,7 @@ export function InsightCard({ insight, onDismiss }: InsightCardProps) {
         <StatCell label="Confidence" value={`${scorePercent}%`} bar={scorePercent} color="var(--color-brand)" />
         <StatCell label="Shift" value={`${shiftSign}${shiftPercent}%`} bar={Math.abs(shiftPercent) * 3} color={shiftColor} />
         <StatCell label="Opportunity" value={`${opportunityPercent}%`} bar={opportunityPercent} color="#a78bfa" />
-        <StatCell label="Tweets" value={String(insight.tweetCount)} />
+        <StatCell label={insight.tweetCount === 1 ? 'Tweet' : 'Tweets'} value={String(insight.tweetCount)} />
       </div>
 
       {/* Risk flags */}

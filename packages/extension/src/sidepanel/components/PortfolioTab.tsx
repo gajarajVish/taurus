@@ -164,6 +164,7 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
         <Section
           title="Correlation Risks"
           color="var(--color-warning)"
+          variant="warning"
           items={analysis.correlationWarnings}
           displayPositions={displayPositions}
           onExitPosition={onExitPosition}
@@ -175,6 +176,7 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
         <Section
           title="Hedging Ideas"
           color="var(--color-success)"
+          variant="success"
           items={analysis.hedgingSuggestions}
           displayPositions={displayPositions}
           onExitPosition={onExitPosition}
@@ -188,12 +190,13 @@ export function PortfolioTab({ positions, displayPositions, onExitPosition }: Po
 interface SectionProps {
   title: string;
   color: string;
+  variant?: 'warning' | 'success' | 'brand';
   items: Array<{ text: string; positionIndices?: number[] }>;
   displayPositions?: DisplayPosition[];
   onExitPosition?: (pos: DisplayPosition) => void;
 }
 
-function Section({ title, color, items, displayPositions, onExitPosition }: SectionProps) {
+function Section({ title, color, variant, items, displayPositions, onExitPosition }: SectionProps) {
   return (
     <div className="pa-sec">
       <div className="pa-sec-hdr">
@@ -213,12 +216,12 @@ function Section({ title, color, items, displayPositions, onExitPosition }: Sect
                   return (
                     <button
                       key={idx}
-                      className="pa-sec-exit press-effect"
+                      className={`pa-sec-exit${variant ? ` pa-sec-exit--${variant}` : ''} press-effect`}
                       onClick={() => onExitPosition(pos)}
                       title={pos.marketQuestion}
                     >
                       <span className="pa-sec-exit-lbl">{pos.marketQuestion}</span>
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+                      <svg className="pa-sec-exit-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>
                     </button>
                   );
                 })}

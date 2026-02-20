@@ -156,7 +156,7 @@ function analyzeLocal(tweets: string[], market: Market): SentimentResult {
     consensusShift: Math.round(consensusShift * 1000) / 1000,
     riskFlags,
     opportunityScore: Math.round(opportunityScore * 100) / 100,
-    explainableSummary: `${tweets.length} tweets show ${sentiment} sentiment (${direction}, ~${shiftPct}% shift). Current YES price: ${(yesPrice * 100).toFixed(0)}%.`,
+    explainableSummary: `${tweets.length} ${tweets.length === 1 ? 'tweet shows' : 'tweets show'} ${sentiment} sentiment (${direction}, ~${shiftPct}% shift). Current YES price: ${(yesPrice * 100).toFixed(0)}%.`,
     source: 'local',
   };
 }
@@ -332,7 +332,7 @@ function buildPortfolioPrompt(positions: PortfolioPosition[], insights: Insight[
   if (insights.length > 0) {
     const insightsFormatted = insights.map((ins) => {
       const flags = ins.riskFlags.length > 0 ? ` Flags: ${ins.riskFlags.join(', ')}.` : '';
-      return `- "${ins.marketId}": ${ins.sentiment} sentiment (${Math.round(ins.score * 100)}% confidence, ${ins.tweetCount} tweets). ${ins.summary}${flags}`;
+      return `- "${ins.marketId}": ${ins.sentiment} sentiment (${Math.round(ins.score * 100)}% confidence, ${ins.tweetCount} ${ins.tweetCount === 1 ? 'tweet' : 'tweets'}). ${ins.summary}${flags}`;
     }).join('\n');
     insightsSection = `\n\nTweet Sentiment Insights (from live X/Twitter data):\n${insightsFormatted}`;
   }
