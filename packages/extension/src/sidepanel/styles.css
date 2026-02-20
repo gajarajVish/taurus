@@ -796,3 +796,101 @@ body {
 .pe-confirm-btn:hover { background: var(--color-brand-hover); box-shadow: 0 0 12px var(--color-brand-glow); }
 .pe-dismiss-btn { padding: 7px 12px; border-radius: var(--radius-xs); border: 0.5px solid var(--color-border); background: transparent; color: var(--color-text-secondary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family); }
 .pe-dismiss-btn:hover { color: var(--color-text-primary); }
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+/* SwapTab (sw-*)                                                            */
+/* ══════════════════════════════════════════════════════════════════════════ */
+
+.sw-container { display: flex; flex-direction: column; gap: 14px; }
+
+.sw-section {
+  background: var(--color-bg-card); border-radius: var(--radius-md);
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+}
+.sw-section-title { font-size: 14px; font-weight: 700; color: var(--color-text-primary); letter-spacing: -0.2px; }
+.sw-section-subtitle { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+
+/* Token selector */
+.sw-token-row { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.sw-token-field {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--color-bg-elevated); border-radius: var(--radius-sm);
+  padding: 12px 14px; gap: 10px; width: 100%; position: relative;
+}
+.sw-token-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-tertiary); font-weight: 600; }
+.sw-token-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--color-bg-card); padding: 6px 12px; border-radius: var(--radius-pill);
+  cursor: pointer; border: 0.5px solid var(--color-border-subtle);
+  transition: all var(--transition-fast); color: var(--color-text-primary); font-family: var(--font-family);
+}
+.sw-token-pill:hover { border-color: var(--color-border); background: var(--color-bg-hover); }
+.sw-token-symbol { font-size: 14px; font-weight: 700; }
+.sw-token-name { font-size: 12px; color: var(--color-text-secondary); }
+
+.sw-token-dropdown {
+  position: absolute; top: 100%; right: 0; margin-top: 4px; z-index: 10;
+  background: var(--color-bg-elevated); border-radius: var(--radius-sm);
+  border: 0.5px solid var(--color-border); box-shadow: var(--shadow-elevated);
+  overflow: hidden; min-width: 140px;
+}
+.sw-token-option {
+  display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+  background: none; border: none; width: 100%; cursor: pointer;
+  color: var(--color-text-primary); font-family: var(--font-family);
+  transition: background var(--transition-fast);
+}
+.sw-token-option:hover { background: var(--color-bg-hover); }
+
+/* Swap direction button */
+.sw-swap-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--color-bg-elevated); border: 0.5px solid var(--color-border-subtle);
+  color: var(--color-text-secondary); cursor: pointer; display: flex;
+  align-items: center; justify-content: center;
+  transition: all var(--transition-spring); margin: -4px 0; flex-shrink: 0;
+}
+.sw-swap-btn:hover { color: var(--color-brand); border-color: var(--color-brand); transform: rotate(180deg); }
+
+/* Quote display */
+.sw-quote { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; }
+.sw-quote-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--color-text-secondary);
+}
+.sw-quote-value { font-weight: 600; color: var(--color-text-primary); }
+.sw-quote-highlight {
+  font-size: 22px; font-weight: 700; color: var(--color-text-primary);
+  text-align: center; padding: 8px 0; letter-spacing: -0.5px;
+}
+
+/* Sentiment recommendation cards */
+.sw-rec-header {
+  display: flex; align-items: center; gap: 8px; padding: 2px 2px 8px;
+  border-bottom: 0.5px solid var(--color-border-subtle);
+}
+.sw-rec-title { font-size: 14px; font-weight: 700; letter-spacing: -0.2px; }
+.sw-rec-card {
+  background: var(--color-bg-elevated); border-radius: var(--radius-sm);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;
+  border-left: 3px solid var(--color-brand);
+}
+.sw-rec-card--bullish { border-left-color: var(--color-success); }
+.sw-rec-card--bearish { border-left-color: var(--color-error); }
+.sw-rec-pair { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+.sw-rec-rationale { font-size: 13px; color: var(--color-text-secondary); line-height: 1.5; }
+.sw-rec-action {
+  padding: 9px 0; border-radius: var(--radius-xs); border: none;
+  background: var(--color-brand); color: #fff; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all var(--transition-fast); font-family: var(--font-family);
+  width: 100%;
+}
+.sw-rec-action:hover { background: var(--color-brand-hover); box-shadow: var(--shadow-glow); }
+
+/* Chain badge */
+.sw-chain-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; padding: 3px 8px;
+  border-radius: var(--radius-pill); background: rgba(79, 143, 255, 0.1);
+  color: var(--color-brand); letter-spacing: 0.3px;
+}

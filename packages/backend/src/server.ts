@@ -7,6 +7,8 @@ import { tradesPlugin } from './routes/trades.js';
 import { insightsPlugin } from './routes/insights.js';
 import { tweetsPlugin } from './routes/tweets.js';
 import { automationPlugin } from './routes/automation.js';
+import { swapPlugin } from './routes/swap.js';
+import { sentimentSwapPlugin } from './routes/sentiment-swap.js';
 import { startPeriodicScan } from './services/insights/aggregator.js';
 
 export async function createServer() {
@@ -44,6 +46,12 @@ export async function createServer() {
 
   // Automation — AI-powered auto-exit monitoring
   await server.register(automationPlugin);
+
+  // Swap — Uniswap Trading API proxy
+  await server.register(swapPlugin);
+
+  // Sentiment Swap — AI-powered swap recommendations
+  await server.register(sentimentSwapPlugin);
 
   // Start proactive 0G market scanning
   startPeriodicScan();

@@ -1,9 +1,22 @@
-// Backend entry point - to be implemented
-import { createServer } from './server.js';
+// Backend entry point — load .env before anything else
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: resolve(__dirname, '..', '.env') });
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
 
 async function main() {
+  if (!process.env.UNISWAP_API_KEY) {
+    console.warn('[Taurus] WARNING: UNISWAP_API_KEY not set — swap routes will return 401');
+  } else {
+    console.log('[Taurus] Uniswap API key loaded');
+  }
+
+  // Dynamic import so config reads env vars AFTER dotenv loads
+  const { createServer } = await import('./server.js');
   const server = await createServer();
 
   try {
