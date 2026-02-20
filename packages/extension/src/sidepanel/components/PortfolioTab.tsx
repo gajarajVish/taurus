@@ -11,9 +11,9 @@ interface PortfolioTabProps {
 }
 
 const RISK_COLORS: Record<string, { color: string; bg: string; label: string }> = {
-  low:    { color: 'var(--color-success)', bg: 'rgba(48,209,88,0.1)',  label: 'Low Risk' },
-  medium: { color: 'var(--color-warning)', bg: 'rgba(255,214,10,0.1)', label: 'Medium Risk' },
-  high:   { color: 'var(--color-error)',   bg: 'rgba(255,69,58,0.1)',  label: 'High Risk' },
+  low:    { color: 'var(--color-success)', bg: 'rgba(52,211,153,0.1)',  label: 'Low Risk' },
+  medium: { color: 'var(--color-warning)', bg: 'rgba(251,191,36,0.1)', label: 'Medium Risk' },
+  high:   { color: 'var(--color-error)',   bg: 'rgba(248,113,113,0.1)',  label: 'High Risk' },
 };
 
 export function PortfolioTab({ positions, displayPositions, onExitPosition }: PortfolioTabProps) {

@@ -16,15 +16,15 @@ export function InsightCard({ insight, onDismiss }: InsightCardProps) {
   const timeAgo = getTimeAgo(insight.timestamp);
 
   const sentimentConfig = {
-    bullish: { label: 'Bullish', color: '#30d158', icon: '↗', bg: 'rgba(48,209,88,0.08)', border: 'rgba(48,209,88,0.25)' },
-    bearish: { label: 'Bearish', color: '#ff453a', icon: '↘', bg: 'rgba(255,69,58,0.08)', border: 'rgba(255,69,58,0.25)' },
-    neutral: { label: 'Neutral', color: '#98989d', icon: '→', bg: 'rgba(152,152,157,0.08)', border: 'rgba(152,152,157,0.25)' },
+    bullish: { label: 'Bullish', color: '#34d399', icon: '↗', bg: 'rgba(52,211,153,0.1)' },
+    bearish: { label: 'Bearish', color: '#f87171', icon: '↘', bg: 'rgba(248,113,113,0.1)' },
+    neutral: { label: 'Neutral', color: '#8b8fa3', icon: '→', bg: 'rgba(139,143,163,0.1)' },
   }[insight.sentiment];
 
-  const shiftColor = shiftPercent >= 0 ? '#30d158' : '#ff453a';
+  const shiftColor = shiftPercent >= 0 ? '#34d399' : '#f87171';
 
   return (
-    <div className="ic" style={{ borderColor: sentimentConfig.border }}>
+    <div className="ic" style={{ borderLeftColor: sentimentConfig.color }}>
       {/* Top row: sentiment pill + time + dismiss */}
       <div className="ic-top">
         <div className="ic-pill" style={{ background: sentimentConfig.bg, color: sentimentConfig.color }}>

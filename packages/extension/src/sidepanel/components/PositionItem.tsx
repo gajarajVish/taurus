@@ -43,8 +43,8 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
   }, [outcomeId]);
 
   const chartColor = chartData && chartData.length > 1
-    ? chartData[chartData.length - 1] >= chartData[0] ? '#00c896' : '#f91880'
-    : '#555';
+    ? chartData[chartData.length - 1] >= chartData[0] ? '#34d399' : '#f87171'
+    : '#565973';
 
   return (
     <div className={`position-item position-item--${side}`}>
@@ -59,13 +59,13 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
 
       {chartData && chartData.length > 1 && (
         <div className="position-chart">
-          <Sparkline data={chartData} width={120} height={28} color={chartColor} />
+          <Sparkline data={chartData} width={200} height={28} color={chartColor} filled />
         </div>
       )}
 
       <div className="position-meta">
         <div className="position-stats">
-          <span>{size} invested</span>
+          <span className="position-size">{size}</span>
         </div>
         <div className="position-actions">
           <span className={`position-pnl ${pnlColorClass}`}>

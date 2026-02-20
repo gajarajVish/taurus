@@ -8,41 +8,52 @@ interface MetricsCardProps {
   sparklineData?: number[];
 }
 
-export function MetricsCard({ pnl, volume, streak, sparklineData }: MetricsCardProps) {
-  const pnlClass = pnl >= 0 ? 'positive' : 'negative';
-  const pnlSign = pnl >= 0 ? '+' : '';
+export function MetricsCard({ pnl, volume, sparklineData }: MetricsCardProps) {
+  const invested = volume;
+  const current = volume + pnl;
+  const isPositive = pnl >= 0;
+  const pnlSign = isPositive ? '+' : '';
+  const pnlColor = isPositive ? '#34d399' : '#f87171';
+  const dir = isPositive ? 'up' : 'down';
+  const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
 
-  // Use real PnL history if available, otherwise flat line at current PnL
-  const data = sparklineData && sparklineData.length > 1 ? sparklineData : [pnl, pnl];
+  const hasChart = sparklineData && sparklineData.length > 2 &&
+    Math.max(...sparklineData) !== Math.min(...sparklineData);
+
+  const fmt = (n: number) => n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="metrics-card">
-      <div className="metrics-row">
-        <div className="metric-item">
-          <div className="metric-label">Total PnL</div>
-          <div className={`metric-value ${pnlClass}`}>
-            {pnlSign}${Math.abs(pnl).toFixed(2)}
+    <div className="dash">
+      <div className="dash-card">
+        {/* P&L hero */}
+        <div className={`dash-hero ${dir}`}>
+          <span className="dash-hero-lbl">Profit & Loss</span>
+          <div className="dash-hero-row">
+            <span className="dash-hero-val">
+              {pnlSign}${fmt(Math.abs(pnl))}
+            </span>
+            {Math.abs(pnlPct) >= 0.1 && (
+              <span className="dash-hero-pct">
+                {pnlSign}{pnlPct.toFixed(1)}%
+              </span>
+            )}
           </div>
+          {hasChart && (
+            <div className="dash-hero-chart">
+              <Sparkline data={sparklineData!} color={pnlColor} filled />
+            </div>
+          )}
         </div>
-        <div className="metric-sparkline">
-             <Sparkline data={data} width={80} height={25} color={pnl >= 0 ? '#30d158' : '#ff453a'} />
-        </div>
-      </div>
 
-      <div className="metrics-divider" />
-
-      <div className="metrics-row">
-        <div className="metric-item">
-          <div className="metric-label">Volume</div>
-          <div className="metric-value metric-value--secondary">${volume.toLocaleString()}</div>
-        </div>
-        <div className="metric-item metric-item--end">
-          <div className="metric-label">Streak</div>
-          <div className="metric-value metric-value--secondary">
-            {streak}
-            <svg className="metric-streak-icon" width="14" height="14" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2C6.5 9.5 10 13 10 13s-4 0-4 5c0 3 3 4 6 4s6-1 6-4c0-7-6-16-6-16z" fill="#ff9f0a" />
-            </svg>
+        {/* Detail rows */}
+        <div className="dash-details">
+          <div className="dash-detail">
+            <span className="dash-detail-lbl">Invested</span>
+            <span className="dash-detail-val">${fmt(invested)}</span>
+          </div>
+          <div className="dash-detail">
+            <span className="dash-detail-lbl">Current value</span>
+            <span className="dash-detail-val">${fmt(current)}</span>
           </div>
         </div>
       </div>
