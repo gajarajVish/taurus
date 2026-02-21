@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { InsightCard } from './InsightCard';
 import { AutoExitEditor } from './AutoExitEditor';
+import { PendingExitBanner } from './PendingExitBanner';
 import { api } from '../../lib/api';
 import { getInstallId, getAISettings } from '../../lib/storage';
-import type { Insight, Market } from '@taurus/types';
+import type { Insight, Market, PendingExit } from '@taurus/types';
 import type { DisplayPosition } from '../Sidecar';
 import type { BuySelection } from './TrendingMarketsTab';
 
@@ -13,9 +14,12 @@ interface InsightsTabProps {
   onExitSignalCount?: (count: number) => void;
   onBuy?: (selection: BuySelection) => void;
   onExitPosition?: (pos: DisplayPosition) => void;
+  pendingExits?: PendingExit[];
+  onConfirmExit?: (exit: PendingExit) => void;
+  onDismissExit?: (positionId: string) => void;
 }
 
-export function InsightsTab({ marketId, positions = [], onExitSignalCount, onBuy, onExitPosition }: InsightsTabProps) {
+export function InsightsTab({ marketId, positions = [], onExitSignalCount, onBuy, onExitPosition, pendingExits = [], onConfirmExit, onDismissExit }: InsightsTabProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,6 +169,14 @@ export function InsightsTab({ marketId, positions = [], onExitSignalCount, onBuy
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         </button>
       </div>
+
+      {pendingExits.length > 0 && onConfirmExit && onDismissExit && (
+        <PendingExitBanner
+          exits={pendingExits}
+          onConfirm={onConfirmExit}
+          onDismiss={onDismissExit}
+        />
+      )}
 
       <div className="it-list">
         <AutoExitEditor />

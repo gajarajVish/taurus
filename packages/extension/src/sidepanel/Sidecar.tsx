@@ -5,7 +5,6 @@ import { PositionsCard } from './components/PositionsCard';
 import { PortfolioStatsRow } from './components/PortfolioStatsRow';
 import { Tabs } from './components/Tabs';
 import { InsightsTab } from './components/InsightsTab';
-import { PendingExitBanner } from './components/PendingExitBanner';
 import { SellModal } from './components/SellModal';
 import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
 import { SwapTab } from './components/SwapTab';
@@ -392,14 +391,6 @@ export function Sidecar() {
             />
 
             <div className="sidecar-content">
-                {activeTab === 'insights' && pendingExits.length > 0 && (
-                    <PendingExitBanner
-                        exits={pendingExits}
-                        onConfirm={handleConfirmExit}
-                        onDismiss={handleDismissExit}
-                    />
-                )}
-
                 {activeTab === 'dashboard' && (
                     <div className="animate-fade-in dashboard-content">
                         <MetricsCard
@@ -440,6 +431,9 @@ export function Sidecar() {
                             onExitSignalCount={setInsightsBadge}
                             onBuy={handleInsightBuy}
                             onExitPosition={(pos) => setSellPosition(pos)}
+                            pendingExits={pendingExits}
+                            onConfirmExit={handleConfirmExit}
+                            onDismissExit={handleDismissExit}
                         />
                     </div>
                 )}
