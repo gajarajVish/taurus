@@ -13,9 +13,10 @@ interface PositionItemProps {
   pnlPercent: number;
   outcomeId: string;
   onExit?: () => void;
+  onClick?: () => void;
 }
 
-export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId, onExit }: PositionItemProps) {
+export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId, onExit, onClick }: PositionItemProps) {
   const isPositive = pnlPercent >= 0;
   const pnlSign = isPositive ? '+' : '';
   const pnlColorClass = isPositive ? 'positive' : 'negative';
@@ -49,7 +50,11 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
     : '#4C4C6E';
 
   return (
-    <div className={`position-item position-item--${side}`}>
+    <div
+      className={`position-item position-item--${side}${onClick ? ' position-item--clickable' : ''}`}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+    >
       <div className="position-header">
         <div className="position-question">{marketQuestion}</div>
         {chartData && chartData.length > 1 && (
@@ -73,8 +78,16 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
             {pnlSign}{pnlPercent.toFixed(1)}%
           </span>
           {onExit && (
-            <button className="position-exit-btn press-effect" onClick={onExit}>
-              Exit
+            <button
+              className="position-exit-icon-btn press-effect"
+              onClick={(e) => { e.stopPropagation(); onExit(); }}
+              title="Exit position"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
             </button>
           )}
         </div>

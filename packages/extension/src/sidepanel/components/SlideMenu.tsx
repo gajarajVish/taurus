@@ -61,33 +61,12 @@ export function SlideMenu({ isOpen, onClose, onNavigate }: SlideMenuProps) {
       ),
     },
     {
-      id: 'risk',
-      label: 'Risk',
-      iconBg: '#ff9f0a',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-        </svg>
-      ),
-    },
-    {
       id: 'markets',
       label: 'Markets',
       iconBg: '#30d158',
       icon: (
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-      ),
-    },
-    {
-      id: 'swap',
-      label: 'Swap',
-      iconBg: '#ff6b9d',
-      icon: (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round">
-          <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 014-4h14" />
-          <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 01-4 4H3" />
         </svg>
       ),
     },

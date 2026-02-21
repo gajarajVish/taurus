@@ -5,9 +5,10 @@ import type { DisplayPosition } from '../Sidecar';
 interface PositionsCardProps {
   positions: DisplayPosition[];
   onExitPosition?: (position: DisplayPosition) => void;
+  onSelectPosition?: (position: DisplayPosition) => void;
 }
 
-export function PositionsCard({ positions, onExitPosition }: PositionsCardProps) {
+export function PositionsCard({ positions, onExitPosition, onSelectPosition }: PositionsCardProps) {
   // Sort positions by absolute P&L impact (biggest movers first)
   const sorted = [...positions].sort((a, b) => Math.abs(b.pnlPercent) - Math.abs(a.pnlPercent));
 
@@ -42,6 +43,7 @@ export function PositionsCard({ positions, onExitPosition }: PositionsCardProps)
               pnlPercent={position.pnlPercent}
               outcomeId={position.outcomeId}
               onExit={onExitPosition ? () => onExitPosition(position) : undefined}
+              onClick={onSelectPosition ? () => onSelectPosition(position) : undefined}
             />
           ))
         )}

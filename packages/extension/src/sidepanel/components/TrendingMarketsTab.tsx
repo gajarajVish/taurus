@@ -35,9 +35,10 @@ export interface BuySelection {
 
 interface TrendingMarketsTabProps {
   onBuy?: (selection: BuySelection) => void;
+  positionMarketIds?: Set<string>;
 }
 
-export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
+export function TrendingMarketsTab({ onBuy, positionMarketIds }: TrendingMarketsTabProps) {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +51,17 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
     try {
       // Fetch extra to account for non-binary markets being filtered out
       const data = await api.markets.list({ limit: 50, active: true });
-      setMarkets(data.filter(isTradeable).slice(0, 10));
+      const raw = data.filter(isTradeable);
+      const sorted = positionMarketIds?.size
+        ? [...raw.filter(m => positionMarketIds.has(m.id)), ...raw.filter(m => !positionMarketIds.has(m.id))].slice(0, 10)
+        : raw.slice(0, 10);
+      setMarkets(sorted);
     } catch (err) {
       setError((err as Error).message ?? 'Failed to load markets');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [positionMarketIds]);
 
   useEffect(() => {
     fetchMarkets();
@@ -156,9 +161,13 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
         {filteredMarkets.map((m, i) => {
           const yesPercent = Math.round(parseFloat(m.yesPrice) * 100);
           const noPercent = 100 - yesPercent;
+          const hasPosition = positionMarketIds?.has(m.id);
           return (
             <div key={m.id} className="tm-card">
-              <div className="tm-rank">#{i + 1}</div>
+              <div className="tm-rank-row">
+                <div className="tm-rank">#{i + 1}</div>
+                {hasPosition && <span className="tm-position-badge">Your position</span>}
+              </div>
               <div className="tm-question">{m.question}</div>
               <div className="tm-bar-container">
                 <div className="tm-bar-track">

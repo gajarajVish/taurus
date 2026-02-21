@@ -6,6 +6,8 @@ interface InsightCardProps {
   insight: Insight;
   position?: DisplayPosition;
   onDismiss?: () => void;
+  onIncreasePosition?: (marketId: string, side: 'YES' | 'NO') => void;
+  onExitPosition?: () => void;
 }
 
 const SENTIMENT = {
@@ -14,8 +16,18 @@ const SENTIMENT = {
   neutral: { label: 'Neutral', color: '#6B6B8A', cls: 'neutral' },
 } as const;
 
-export function InsightCard({ insight, position, onDismiss }: InsightCardProps) {
+export function InsightCard({ insight, position, onDismiss, onIncreasePosition, onExitPosition }: InsightCardProps) {
   const [open, setOpen] = useState(false);
+
+  // Derive action: sentiment aligned with position side → increase; against → exit
+  // bullish + YES or bearish + NO → increase; bearish + YES or bullish + NO → exit
+  let positionAction: 'increase' | 'exit' | null = null;
+  if (position && insight.sentiment !== 'neutral') {
+    const aligned =
+      (insight.sentiment === 'bullish' && position.side === 'yes') ||
+      (insight.sentiment === 'bearish' && position.side === 'no');
+    positionAction = aligned ? 'increase' : 'exit';
+  }
 
   const conf = Math.round(insight.score * 100);
   const shift = Math.round(insight.consensusShift * 100);
@@ -67,14 +79,14 @@ export function InsightCard({ insight, position, onDismiss }: InsightCardProps) 
         </div>
       </div>
 
-      {/* Footer: position + details */}
+      {/* Footer: position info + details toggle */}
       <div className="ic-foot">
         {position && (
           <span className="ic-position">
             <span className="ic-position-side" style={{ color: position.side === 'yes' ? '#00F5A0' : '#FF4757' }}>
               {position.side.toUpperCase()}
             </span>
-            <span className="ic-position-size">${position.size}</span>
+            <span className="ic-position-size">{position.size}</span>
             <span className="ic-position-pnl" style={{ color: position.pnlPercent >= 0 ? '#00F5A0' : '#FF4757' }}>
               {position.pnlPercent >= 0 ? '+' : ''}{position.pnlPercent.toFixed(1)}%
             </span>
@@ -87,6 +99,28 @@ export function InsightCard({ insight, position, onDismiss }: InsightCardProps) 
           </button>
         )}
       </div>
+
+      {/* Position action buttons */}
+      {positionAction && (
+        <div className="ic-actions">
+          {positionAction === 'increase' && onIncreasePosition && (
+            <button
+              className="ic-action-btn ic-action-btn--increase"
+              onClick={() => onIncreasePosition(insight.marketId, position!.side === 'yes' ? 'YES' : 'NO')}
+            >
+              ↑ Increase Position
+            </button>
+          )}
+          {positionAction === 'exit' && onExitPosition && (
+            <button
+              className="ic-action-btn ic-action-btn--exit"
+              onClick={onExitPosition}
+            >
+              ↗ Exit Position
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Expanded details */}
       {open && (

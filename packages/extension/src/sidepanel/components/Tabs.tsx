@@ -3,6 +3,7 @@ import React from 'react';
 interface TabItem {
   id: string;
   label: string;
+  badge?: number;
 }
 
 interface TabsProps {
@@ -54,6 +55,9 @@ export function Tabs({ tabs, activeTab, onChange }: TabsProps) {
         >
           <span className="tab-icon">{TAB_ICONS[tab.id]}</span>
           {tab.label}
+          {tab.badge != null && tab.badge > 0 && (
+            <span className="tab-badge">{tab.badge}</span>
+          )}
         </button>
       ))}
     </div>

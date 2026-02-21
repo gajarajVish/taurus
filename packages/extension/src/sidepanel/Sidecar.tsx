@@ -1,20 +1,22 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Header } from './components/Header';
 import { MetricsCard } from './components/MetricsCard';
 import { PositionsCard } from './components/PositionsCard';
+import { PortfolioStatsRow } from './components/PortfolioStatsRow';
 import { Tabs } from './components/Tabs';
 import { InsightsTab } from './components/InsightsTab';
-import { PortfolioTab } from './components/PortfolioTab';
 import { PendingExitBanner } from './components/PendingExitBanner';
 import { SellModal } from './components/SellModal';
 import { TrendingMarketsTab, type BuySelection } from './components/TrendingMarketsTab';
 import { SwapTab } from './components/SwapTab';
 import { BuyModal } from './components/BuyModal';
 import { SlideMenu } from './components/SlideMenu';
+import { PositionDetailModal } from './components/PositionDetailModal';
+import { PortfolioRiskModal } from './components/PortfolioRiskModal';
 import { getWalletState, type WalletState } from '../lib/wallet';
 import { api } from '../lib/api';
 import { getPendingExits, dismissPendingExit, getInstallId } from '../lib/storage';
-import type { Position, PortfolioPosition, PendingExit } from '@taurus/types';
+import type { Position, PortfolioPosition, PendingExit, PortfolioAnalysis } from '@taurus/types';
 
 export interface DisplayPosition {
     id: string;
@@ -89,7 +91,17 @@ export function Sidecar() {
     const [buySelection, setBuySelection] = useState<BuySelection | null>(null);
     const [pendingExits, setPendingExits] = useState<PendingExit[]>([]);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [selectedPosition, setSelectedPosition] = useState<DisplayPosition | null>(null);
+    const [swapPanelOpen, setSwapPanelOpen] = useState(false);
+    const [usdcBalance, setUsdcBalance] = useState<number | null>(null);
+    const [portfolioAnalysis, setPortfolioAnalysis] = useState<PortfolioAnalysis | null>(null);
+    const [portfolioAnalysisLoading, setPortfolioAnalysisLoading] = useState(false);
+    const [portfolioAnalysisError, setPortfolioAnalysisError] = useState<string | null>(null);
+    const [insightsBadge, setInsightsBadge] = useState(0);
+    const [portfolioRiskOpen, setPortfolioRiskOpen] = useState(false);
     const initialLoadDone = useRef(false);
+
+    const isLowLiquidity = walletState.connected && usdcBalance !== null && usdcBalance < 5;
 
     useEffect(() => {
         getWalletState().then(setWalletState);
@@ -127,6 +139,20 @@ export function Sidecar() {
             chrome.runtime.onMessage.removeListener(msgListener);
         };
     }, []);
+
+    // Fetch USDC balance when wallet connects
+    useEffect(() => {
+        if (!walletState.connected || !walletState.address) {
+            setUsdcBalance(null);
+            return;
+        }
+        chrome.runtime.sendMessage({ type: 'GET_USDC_BALANCE', address: walletState.address }, (response) => {
+            if (chrome.runtime.lastError) return;
+            if (response?.balance !== undefined) {
+                setUsdcBalance(parseFloat(response.balance) || 0);
+            }
+        });
+    }, [walletState.connected, walletState.address]);
 
     // Refresh real positions from the backend
     const refreshPositions = useCallback(async (showLoading = false) => {
@@ -207,6 +233,34 @@ export function Sidecar() {
         });
     }, [localPositions]);
 
+    // Portfolio analysis — lifted from PortfolioTab
+    const fetchPortfolioAnalysis = useCallback(async () => {
+        const allRaw = [...localPositions, ...rawPositions];
+        if (allRaw.length === 0) return;
+        setPortfolioAnalysisLoading(true);
+        setPortfolioAnalysisError(null);
+        try {
+            const installId = await getInstallId();
+            const { insights } = await api.insights.getAll(installId);
+            const portfolioPositions = toPortfolioPositions(allRaw);
+            const res = await api.insights.analyzePortfolio({ positions: portfolioPositions, insights });
+            setPortfolioAnalysis(res.analysis);
+        } catch (err) {
+            setPortfolioAnalysisError('Failed to analyze portfolio');
+            console.error('[Sidecar] Portfolio analysis error:', err);
+        } finally {
+            setPortfolioAnalysisLoading(false);
+        }
+    }, [localPositions, rawPositions]);
+
+    // Auto-trigger portfolio analysis when positions load and analysis is null
+    useEffect(() => {
+        const allRaw = [...localPositions, ...rawPositions];
+        if (allRaw.length > 0 && !portfolioAnalysis && !portfolioAnalysisLoading && !portfolioAnalysisError) {
+            fetchPortfolioAnalysis();
+        }
+    }, [localPositions.length, rawPositions.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
     // Initial fetch on wallet connect
     useEffect(() => {
         if (!walletState.connected || !walletState.address) {
@@ -247,14 +301,20 @@ export function Sidecar() {
         streak: (() => { let s = 0; for (const p of allRawPositions) { if (p.pnl > 0) s++; else break; } return s; })(),
     };
 
-    const allPositionsForPortfolio = toPortfolioPositions(allRawPositions);
+    const allDisplayPositions = useMemo(
+        () => [...localPositions.map(mapPosition), ...positions],
+        [localPositions, positions]
+    );
+
+    const positionMarketIds = useMemo(
+        () => new Set([...localPositions, ...rawPositions].map(p => p.marketId)),
+        [localPositions, rawPositions]
+    );
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard' },
         { id: 'insights', label: 'Insights' },
-        { id: 'risk', label: 'Risk' },
         { id: 'markets', label: 'Markets' },
-        { id: 'swap', label: 'Swap' },
     ];
 
     const handleConnectWallet = () => {
@@ -298,6 +358,10 @@ export function Sidecar() {
         handleDismissExit(exit.positionId);
     };
 
+    const handleInsightBuy = useCallback(async (selection: BuySelection) => {
+        setBuySelection(selection);
+    }, []);
+
     const handleDismissExit = async (positionId: string) => {
         await dismissPendingExit(positionId);
         setPendingExits((prev) => prev.filter((e) => e.positionId !== positionId));
@@ -317,6 +381,8 @@ export function Sidecar() {
                 onConnectWallet={handleConnectWallet}
                 onDisconnectWallet={handleDisconnectWallet}
                 onMenuOpen={() => setMenuOpen(true)}
+                isLowLiquidity={isLowLiquidity}
+                onOpenSwap={() => setSwapPanelOpen(true)}
             />
 
             <Tabs
@@ -326,7 +392,7 @@ export function Sidecar() {
             />
 
             <div className="sidecar-content">
-                {pendingExits.length > 0 && (
+                {activeTab === 'insights' && pendingExits.length > 0 && (
                     <PendingExitBanner
                         exits={pendingExits}
                         onConfirm={handleConfirmExit}
@@ -342,6 +408,13 @@ export function Sidecar() {
                             streak={combinedMetrics.streak}
                             sparklineData={pnlHistory}
                         />
+                        <PortfolioStatsRow
+                            analysis={portfolioAnalysis}
+                            loading={portfolioAnalysisLoading}
+                            positionCount={allDisplayPositions.length}
+                            onRefresh={fetchPortfolioAnalysis}
+                            onShowDetails={portfolioAnalysis ? () => setPortfolioRiskOpen(true) : undefined}
+                        />
                         {positionsLoading ? (
                             <div className="loading-state">
                                 Loading positions...
@@ -352,8 +425,9 @@ export function Sidecar() {
                             </div>
                         ) : (
                             <PositionsCard
-                                positions={[...localPositions.map(mapPosition), ...positions]}
+                                positions={allDisplayPositions}
                                 onExitPosition={(pos) => setSellPosition(pos)}
+                                onSelectPosition={(pos) => setSelectedPosition(pos)}
                             />
                         )}
                     </div>
@@ -361,32 +435,18 @@ export function Sidecar() {
 
                 {activeTab === 'insights' && (
                     <div className="animate-fade-in">
-                        <InsightsTab positions={[...localPositions.map(mapPosition), ...positions]} />
-                    </div>
-                )}
-
-                {activeTab === 'risk' && (
-                    <div className="animate-fade-in">
-                        <PortfolioTab
-                            positions={allPositionsForPortfolio}
-                            displayPositions={[...localPositions.map(mapPosition), ...positions]}
-                            onExitPosition={(pos) => {
-                                setActiveTab('dashboard');
-                                setSellPosition(pos);
-                            }}
+                        <InsightsTab
+                            positions={allDisplayPositions}
+                            onExitSignalCount={setInsightsBadge}
+                            onBuy={handleInsightBuy}
+                            onExitPosition={(pos) => setSellPosition(pos)}
                         />
                     </div>
                 )}
 
                 {activeTab === 'markets' && (
                     <div className="animate-fade-in">
-                        <TrendingMarketsTab onBuy={setBuySelection} />
-                    </div>
-                )}
-
-                {activeTab === 'swap' && (
-                    <div className="animate-fade-in">
-                        <SwapTab walletAddress={walletState.address} chainId={walletState.chainId} />
+                        <TrendingMarketsTab onBuy={setBuySelection} positionMarketIds={positionMarketIds} />
                     </div>
                 )}
             </div>
@@ -411,6 +471,40 @@ export function Sidecar() {
                         refreshPositions(false);
                     }}
                 />
+            )}
+
+            {portfolioRiskOpen && portfolioAnalysis && (
+                <PortfolioRiskModal
+                    analysis={portfolioAnalysis}
+                    onClose={() => setPortfolioRiskOpen(false)}
+                />
+            )}
+
+            {selectedPosition && (
+                <PositionDetailModal
+                    position={selectedPosition}
+                    portfolioAnalysis={portfolioAnalysis}
+                    portfolioAnalysisLoading={portfolioAnalysisLoading}
+                    positionIndex={allDisplayPositions.indexOf(selectedPosition)}
+                    walletAddress={walletState.address}
+                    chainId={walletState.chainId}
+                    onClose={() => setSelectedPosition(null)}
+                    onExitPosition={(pos) => { setSelectedPosition(null); setSellPosition(pos); }}
+                    onIncreasePosition={(market, side) => { setSelectedPosition(null); setBuySelection({ market, side }); }}
+                />
+            )}
+
+            {swapPanelOpen && (
+                <div className="sm-overlay" onClick={() => setSwapPanelOpen(false)}>
+                    <div className="sm-container" onClick={(e) => e.stopPropagation()}>
+                        <div className="sm-handle" />
+                        <div className="sm-header">
+                            <span className="sm-title">Fund Your Wallet</span>
+                            <button className="sm-close" onClick={() => setSwapPanelOpen(false)}>✕</button>
+                        </div>
+                        <SwapTab walletAddress={walletState.address} chainId={walletState.chainId} />
+                    </div>
+                </div>
             )}
 
             <SlideMenu
