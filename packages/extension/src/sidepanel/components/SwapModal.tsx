@@ -6,13 +6,16 @@ import type { SentimentSwapRecommendation, SwapStep } from '@taurus/types';
 interface SwapModalProps {
   recommendation: SentimentSwapRecommendation;
   walletAddress: string;
+  title?: string;
+  fromLabel?: string;
+  toLabel?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
 
 const SEPOLIA_CHAIN_ID = 11155111;
 
-export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }: SwapModalProps) {
+export function SwapModal({ recommendation, walletAddress, title, fromLabel, toLabel, onClose, onSuccess }: SwapModalProps) {
   const [amount, setAmount] = useState(recommendation.suggestedAmount || '25');
   const [swapStep, setSwapStep] = useState<SwapStep>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +92,7 @@ export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }:
     if (swapStep === 'quoting') return 'Getting quote...';
     if (swapStep === 'signing') return 'Waiting for signature...';
     if (swapStep === 'submitting') return 'Submitting...';
-    return `Swap ${recommendation.tokenIn.symbol} → ${recommendation.tokenOut.symbol}`;
+    return `Swap ${fromLabel ?? recommendation.tokenIn.symbol} → ${toLabel ?? recommendation.tokenOut.symbol}`;
   };
 
   return (
@@ -97,7 +100,7 @@ export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }:
       <div className="sm-container">
         <div className="sm-handle" />
         <div className="sm-header">
-          <span className="sm-title">Sentiment Swap</span>
+          <span className="sm-title">{title ?? 'Swap'}</span>
           <button className="sm-close" onClick={onClose}>&#10005;</button>
         </div>
 
@@ -113,11 +116,11 @@ export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }:
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '8px 0' }}>
-          <span className="sw-token-symbol" style={{ fontSize: 18 }}>{recommendation.tokenIn.symbol}</span>
+          <span className="sw-token-symbol" style={{ fontSize: 18 }}>{fromLabel ?? recommendation.tokenIn.symbol}</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-secondary)" strokeWidth="2" strokeLinecap="round">
             <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
           </svg>
-          <span className="sw-token-symbol" style={{ fontSize: 18 }}>{recommendation.tokenOut.symbol}</span>
+          <span className="sw-token-symbol" style={{ fontSize: 18 }}>{toLabel ?? recommendation.tokenOut.symbol}</span>
         </div>
 
         {swapStep === 'success' ? (
@@ -128,7 +131,7 @@ export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }:
         ) : (
           <>
             <div className="sm-input-section">
-              <span className="sm-input-label">Amount ({recommendation.tokenIn.symbol})</span>
+              <span className="sm-input-label">Amount ({fromLabel ?? recommendation.tokenIn.symbol})</span>
               <div className="sm-input-row">
                 <input
                   type="text"
@@ -139,7 +142,7 @@ export function SwapModal({ recommendation, walletAddress, onClose, onSuccess }:
                   placeholder="0"
                   disabled={isBusy}
                 />
-                <span className="bm-currency">{recommendation.tokenIn.symbol}</span>
+                <span className="bm-currency">{fromLabel ?? recommendation.tokenIn.symbol}</span>
               </div>
             </div>
 

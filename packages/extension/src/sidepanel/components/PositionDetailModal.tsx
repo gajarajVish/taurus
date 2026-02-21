@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Badge } from './Badge';
 import { SwapModal } from './SwapModal';
 import { api } from '../../lib/api';
-import type { PortfolioAnalysis, Market, SentimentSwapRecommendation } from '@taurus/types';
+import type { PortfolioAnalysis, Market, SentimentSwapRecommendation, SwapToken } from '@taurus/types';
 import type { DisplayPosition } from '../Sidecar';
 
 interface PositionDetailModalProps {
@@ -17,6 +17,77 @@ interface PositionDetailModalProps {
   onIncreasePosition: (market: Market, side: 'YES' | 'NO') => void;
 }
 
+// Sepolia tokens available for swapping
+const T_ETH: SwapToken  = { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH',  name: 'Ethereum',    decimals: 18, chainId: 11155111 };
+const T_WETH: SwapToken = { address: '0xfFf9976782d46CC05630D1f6eBAb18b2324d6B14', symbol: 'WETH', name: 'Wrapped Ether', decimals: 18, chainId: 11155111 };
+const T_USDC: SwapToken = { address: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', symbol: 'USDC', name: 'USD Coin',      decimals: 6,  chainId: 11155111 };
+
+// displaySymbol is what the user sees (BTC, SOL, XRP…).
+// swapToken is the actual Sepolia token used for execution (WETH as proxy where no testnet equivalent exists).
+const CRYPTO_PATTERNS: { pattern: RegExp; name: string; displaySymbol: string; useNative: boolean }[] = [
+  { pattern: /bitcoin|btc/i,                            name: 'Bitcoin',  displaySymbol: 'BTC', useNative: false },
+  { pattern: /ethereum|ether(?!eum)|(?<!\w)eth(?!\w)/i, name: 'Ethereum', displaySymbol: 'ETH', useNative: true  },
+  { pattern: /solana|(?<!\w)sol(?!\w)/i,                name: 'Solana',   displaySymbol: 'SOL', useNative: false },
+  { pattern: /ripple|(?<!\w)xrp(?!\w)/i,                name: 'XRP',      displaySymbol: 'XRP', useNative: false },
+  { pattern: /crypto(?:currency)?|defi|blockchain/i,    name: 'crypto',   displaySymbol: 'ETH', useNative: false },
+];
+
+type PositionSwapRec = SentimentSwapRecommendation & {
+  recType: 'hedge' | 'leverage';
+  cryptoName: string;
+  fromLabel: string;
+  toLabel: string;
+};
+
+function buildPositionSwapRec(position: DisplayPosition): PositionSwapRec | null {
+  const crypto = CRYPTO_PATTERNS.find(({ pattern }) => pattern.test(position.marketQuestion));
+  if (!crypto) return null;
+
+  // YES = bullish on crypto adoption/price; NO = bearish
+  const isBullish = position.side === 'yes';
+  // Treat < -10% PnL as "risky" → recommend hedge; otherwise recommend leverage
+  const isRisky = position.pnlPercent < -10;
+
+  // Logic:
+  //   Hedge   + bullish losing  → sell crypto to USDC (reduce exposure as bet loses)
+  //   Hedge   + bearish losing  → buy crypto (market is going bullish against you)
+  //   Leverage + bullish winning → buy more crypto (ride the wave)
+  //   Leverage + bearish winning → sell crypto to USDC (double down on bearish stance)
+  const moveToCrypto = isRisky ? !isBullish : isBullish;
+
+  const cryptoToken = crypto.useNative ? T_ETH : T_WETH;
+  const tokenIn  = moveToCrypto ? T_USDC : cryptoToken;
+  const tokenOut = moveToCrypto ? cryptoToken : T_USDC;
+
+  // Display labels use the detected asset symbol, not the proxy token symbol
+  const fromLabel = moveToCrypto ? 'USDC' : crypto.displaySymbol;
+  const toLabel   = moveToCrypto ? crypto.displaySymbol : 'USDC';
+
+  const absPnl = Math.abs(position.pnlPercent).toFixed(1);
+  const recType = isRisky ? 'hedge' : 'leverage';
+  const rationale = isRisky
+    ? isBullish
+      ? `Your bullish ${crypto.name} position is down ${absPnl}%. Move to USDC to reduce exposure while odds move against you.`
+      : `Your bearish ${crypto.name} position is down ${absPnl}%. Buy ${crypto.displaySymbol} to offset losses as the market turns bullish.`
+    : isBullish
+      ? `Your bullish ${crypto.name} position is performing well. Add ${crypto.displaySymbol} exposure to leverage the upward trend.`
+      : `Your bearish ${crypto.name} stance is playing out. Move to USDC to reinforce your position.`;
+
+  return {
+    tokenIn,
+    tokenOut,
+    rationale,
+    sentiment: moveToCrypto ? 'bullish' : 'bearish',
+    confidence: Math.min(0.95, 0.55 + Math.abs(position.pnlPercent) / 100),
+    source: 'local',
+    timestamp: new Date().toISOString(),
+    recType,
+    cryptoName: crypto.name,
+    fromLabel,
+    toLabel,
+  };
+}
+
 export function PositionDetailModal({
   position,
   portfolioAnalysis,
@@ -28,14 +99,9 @@ export function PositionDetailModal({
   onIncreasePosition,
 }: PositionDetailModalProps) {
   const [market, setMarket] = useState<Market | null>(null);
-  const [hedgeRec, setHedgeRec] = useState<SentimentSwapRecommendation | null>(null);
-  const [hedgeLoading, setHedgeLoading] = useState(false);
   const [swapModalOpen, setSwapModalOpen] = useState(false);
 
-  // Fetch market details on mount for Increase Position button
-  useEffect(() => {
-    api.markets.get(position.marketId).then(setMarket).catch(() => null);
-  }, [position.marketId]);
+  const swapRec = useMemo(() => buildPositionSwapRec(position), [position]);
 
   const relevantWarnings = portfolioAnalysis?.correlationWarnings.filter(
     (w) => w.positionIndices?.includes(positionIndex)
@@ -47,33 +113,10 @@ export function PositionDetailModal({
 
   const hasRiskData = relevantWarnings.length > 0 || relevantHedges.length > 0;
 
-  const handleGetHedge = async () => {
-    if (hedgeLoading || hedgeRec) return;
-    setHedgeLoading(true);
-    try {
-      const storage = await chrome.storage.local.get(['recentTweetText']);
-      const tweetText = (storage.recentTweetText as string) || position.marketQuestion;
-      const result = await api.swap.sentimentSwap({
-        tweetText,
-        walletAddress: walletAddress || '',
-      });
-      if (result.recommendation) {
-        setHedgeRec(result.recommendation);
-      }
-    } catch {
-      // Silently fail
-    } finally {
-      setHedgeLoading(false);
-    }
-  };
-
-  // Auto-trigger hedge fetch on mount when wallet is connected
+  // Fetch market details on mount for Increase Position button
   useEffect(() => {
-    if (walletAddress && !hedgeRec && !hedgeLoading) {
-      handleGetHedge();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletAddress]);
+    api.markets.get(position.marketId).then(setMarket).catch(() => null);
+  }, [position.marketId]);
 
   const pnlSign = position.pnlPercent >= 0 ? '+' : '';
   const pnlClass = position.pnlPercent >= 0 ? 'positive' : 'negative';
@@ -164,24 +207,12 @@ export function PositionDetailModal({
             </div>
           ) : null}
 
-          {/* Hedge Actions */}
-          {walletAddress && (
+          {/* Position-aware swap recommendation */}
+          {walletAddress && swapRec && (
             <div className="pdm-hedge-row">
-              {hedgeLoading && (
-                <button className="pdm-hedge-btn" disabled>
-                  Fetching hedge…
-                </button>
-              )}
-              {!hedgeLoading && hedgeRec && (
-                <button className="pdm-hedge-btn pdm-hedge-btn--swap" onClick={() => setSwapModalOpen(true)}>
-                  Swap Now: {hedgeRec.tokenIn.symbol} → {hedgeRec.tokenOut.symbol}
-                </button>
-              )}
-              {!hedgeLoading && !hedgeRec && (
-                <button className="pdm-hedge-btn" onClick={handleGetHedge}>
-                  Get AI Hedge
-                </button>
-              )}
+              <button className="pdm-hedge-btn pdm-hedge-btn--swap" onClick={() => setSwapModalOpen(true)}>
+                {swapRec.recType === 'hedge' ? 'Hedge' : 'Leverage'}: {swapRec.fromLabel} → {swapRec.toLabel}
+              </button>
             </div>
           )}
 
@@ -210,10 +241,13 @@ export function PositionDetailModal({
         </div>
       </div>
 
-      {/* Nested SwapModal for hedge */}
-      {swapModalOpen && hedgeRec && walletAddress && (
+      {/* Nested SwapModal for position hedge/leverage */}
+      {swapModalOpen && swapRec && walletAddress && (
         <SwapModal
-          recommendation={hedgeRec}
+          title={swapRec.recType === 'hedge' ? `Hedge ${swapRec.cryptoName} Exposure` : `Leverage ${swapRec.cryptoName} Exposure`}
+          recommendation={swapRec}
+          fromLabel={swapRec.fromLabel}
+          toLabel={swapRec.toLabel}
           walletAddress={walletAddress}
           onClose={() => setSwapModalOpen(false)}
           onSuccess={() => setSwapModalOpen(false)}
