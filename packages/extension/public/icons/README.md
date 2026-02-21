@@ -1,9 +1,7 @@
 # Extension Icons
 
-Add the following icon files to this directory:
+Place icon files here:
 
-- `icon16.png` - 16x16 pixels
-- `icon48.png` - 48x48 pixels
-- `icon128.png` - 128x128 pixels
-
-These icons will be used in the Chrome toolbar and extensions page.
+- `icon16.png` — 16x16 (toolbar)
+- `icon48.png` — 48x48 (extensions page)
+- `icon128.png` — 128x128 (Chrome Web Store)

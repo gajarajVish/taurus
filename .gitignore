@@ -27,5 +27,6 @@ coverage/
 
 # Misc
 *.local
-
 *.mov
+*.html
+!packages/extension/src/**/*.html

@@ -1,121 +1,74 @@
 # Taurus
 
-A Chrome extension that brings Polymarket data to X.com (Twitter).
+Polymarket prediction markets, embedded directly into X.com. View odds and trade without leaving your feed.
 
-This PRD focuses on the core value proposition: contextual prediction markets integrated into social scrolling.
+## How It Works
 
----
+1. **Detect** — A content script scans tweets and matches them to active Polymarket markets via keyword + LLM matching.
+2. **Display** — A widget appears below matched tweets showing the market question, YES price, volume, and action buttons.
+3. **Trade** — One tap opens an inline modal. Guests trade with simulated PolyPoints; authenticated users trade real USDC on Polygon via the Polymarket CLOB.
+4. **Analyze** — AI-powered insights (via [0G Network](https://0g.ai)) surface tweet sentiment, portfolio risk, and swap recommendations in the sidepanel.
 
-## Product Requirements Document (PRD): Taurus v1.0
+## Architecture
 
-### 1. Problem & Vision
+```
+packages/
+├── extension/          Chrome extension (React · Vite · Manifest V3)
+├── backend/            API server (Fastify · TypeScript)
+├── shared/types/       Shared TypeScript type definitions
+├── shared/utils/       Shared utilities (planned)
+└── website/            Standalone site (planned)
+```
 
-**Problem:** Prediction markets (Polymarket) are currently "destination sites." Users have to leave their news source (X) to check odds or trade.
-
-**Vision:** Turn X into a live prediction layer where every claim is instantly "bet-able," increasing market liquidity and user accountability.
-
-### 2. Target Audience
-
-**The Casual (Guest):** X users interested in news/politics who want to "test their takes" without financial risk.
-
-**The Power User (Trader):** Existing Polymarket users who want a high-velocity, low-friction interface to trade on breaking news.
-
-### 3. Core Feature Specifications
-
-#### A. The Injected Market Widget
-
-- **Trigger:** Extension scans tweet text and matches it to an active Polymarket condition_id.
-- **UI Placement:** Injected between the tweet body and the native action icons (Like/RT).
-- **Data Points:** Market Question, Current "Yes" Price, Total Volume.
-- **Actions:** Immediate [ YES ] and [ NO ] buttons.
-
-#### B. The "One-Tap" Trading Flow
-
-- **Inline Modal:** Triggered upon clicking Yes/No.
-- **Inputs:** Amount field (USD or PolyPoints) and "Estimated Payout" calculator.
-- **Execution:**
-  - *Guest Mode:* Simulated trade recorded to local storage/central DB.
-  - *Power Mode:* Direct interaction with Polymarket CLOB (Central Limit Order Book) via Polygon Mainnet.
-
-#### C. Dual-State Wallet System
-
-- **Unauthenticated State:** Uses a "Shadow Account" to track "PolyPoints" (testnet/simulated funds) to gamify the experience for new users.
-- **Authenticated State:** Connect via Privy or MetaMask. Enables real USDC trades.
-- **Feature:** Default trade sizes (e.g., $10, $50, $100) to minimize keystrokes.
-
-### 4. Technical Constraints (MVP)
-
-- **Matching Logic:** Initial MVP will use a "Keyword + LLM" bridge. If a tweet contains specific keywords matching top 100 high-volume markets, the widget appears.
-- **Performance:** The extension must not increase X page load time by >200ms.
-- **Security:** Wallet interactions must happen via a secure popup or a trusted embedded signer (like Privy) to ensure user keys are never exposed to the X DOM.
-
-### 5. Success Metrics
-
-- **Conversion Rate:** % of Guest users who eventually connect a real wallet.
-- **Trade Velocity:** Average time from "Tweet Impression" to "Trade Execution" (Goal: < 5 seconds).
-- **Retention:** Number of markets interacted with per user per week.
-
-### 6. UI/UX "Vibe" Guide
-
-- **Native-First:** Use X's Chirp font and CSS variables for background colors.
-- **High Contrast:** Use Polymarket Blue (#0072ff) for buttons to distinguish "Actionable" data from "Social" data.
-- **Minimalist:** The widget should be collapsible if the user finds it intrusive.
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- npm
-
-### Installation
+## Quick Start
 
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/taurus.git
+git clone https://github.com/gajarajVish/taurus.git
 cd taurus
-
-# Install dependencies
+cp .env.example .env          # add your keys
 npm install
 ```
 
 ### Development
 
 ```bash
-# Start extension development (with hot reload)
-npm run dev:ext
-
-# Start backend server
-npm run dev:api
+npm run dev:ext               # extension with hot reload
+npm run dev:api               # backend dev server
 ```
 
-### Loading the Extension
+### Load the Extension
 
-1. Build the extension: `npm run dev:ext`
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode" (top right)
-4. Click "Load unpacked"
-5. Select the `packages/extension/dist` folder
+1. Run `npm run dev:ext`
+2. Open `chrome://extensions` → enable **Developer mode**
+3. Click **Load unpacked** → select `packages/extension/dist`
 
-## Project Structure
+## Commands
 
-```
-packages/
-├── extension/      # Chrome extension
-├── backend/        # API server
-├── website/        # Standalone website (future)
-└── shared/
-    ├── types/      # Shared TypeScript types
-    └── utils/      # Shared utilities
-```
+| Command | Description |
+|---------|-------------|
+| `npm install` | Install all workspace dependencies |
+| `npm run dev:ext` | Extension dev build with hot reload |
+| `npm run dev:api` | Backend dev server with hot reload |
+| `npm run build` | Production build (all packages) |
+| `npm run type-check` | Type-check all packages |
 
 ## Tech Stack
 
-- **Extension**: React, TypeScript, Vite, Chrome Manifest V3
-- **Backend**: Node.js, Fastify, TypeScript
-- **Blockchain**: Polygon, Polymarket API
+| Layer | Tools |
+|-------|-------|
+| Extension | React, TypeScript, Vite, Shadow DOM, Chrome Manifest V3 |
+| Backend | Node.js, Fastify, Zod, ethers.js |
+| AI | 0G Compute Network (decentralized inference) |
+| Blockchain | Polygon Mainnet, Polymarket CLOB API |
+| Swaps | Uniswap Trading API (Sepolia testnet) |
+
+## Environment Variables
+
+See [`.env.example`](.env.example) for required configuration:
+
+- `OG_COMPUTE_PRIVATE_KEY` — 0G wallet key for AI inference
+- `UNISWAP_API_KEY` — Uniswap Trading API key for swap routes
+- `PORT` — Backend server port (default: 3000)
 
 ## License
 
