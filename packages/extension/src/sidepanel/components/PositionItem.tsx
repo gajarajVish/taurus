@@ -45,8 +45,8 @@ export function PositionItem({ marketQuestion, side, size, pnlPercent, outcomeId
   }, [outcomeId]);
 
   const chartColor = chartData && chartData.length > 1
-    ? chartData[chartData.length - 1] >= chartData[0] ? '#34d399' : '#f87171'
-    : '#565973';
+    ? chartData[chartData.length - 1] >= chartData[0] ? '#00F5A0' : '#FF4757'
+    : '#4C4C6E';
 
   return (
     <div className={`position-item position-item--${side}`}>

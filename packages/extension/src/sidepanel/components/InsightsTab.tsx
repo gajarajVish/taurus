@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { InsightCard } from './InsightCard';
 import { AutoExitEditor } from './AutoExitEditor';
 import { api } from '../../lib/api';
 import { getInstallId, getAISettings } from '../../lib/storage';
-import type { Insight } from '@taurus/types';
+import type { Insight, SentimentType } from '@taurus/types';
 import type { DisplayPosition } from '../Sidecar';
 
 interface InsightsTabProps {
@@ -11,11 +11,21 @@ interface InsightsTabProps {
   positions?: DisplayPosition[];
 }
 
+type FilterKey = 'all' | SentimentType;
+
+const FILTERS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'bullish', label: 'Bullish' },
+  { key: 'bearish', label: 'Bearish' },
+  { key: 'neutral', label: 'Neutral' },
+];
+
 export function InsightsTab({ marketId, positions = [] }: InsightsTabProps) {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(true);
+  const [filter, setFilter] = useState<FilterKey>('all');
 
   const fetchInsights = useCallback(async () => {
     try {
@@ -33,7 +43,6 @@ export function InsightsTab({ marketId, positions = [] }: InsightsTabProps) {
         setInsights(res.insight ? [res.insight] : []);
       } else {
         const res = await api.insights.getAll(installId);
-        // Only show insights for markets where the user holds a position
         const positionMarketIds = new Set(positions.map((p) => p.marketId));
         const filtered = positionMarketIds.size > 0
           ? res.insights.filter((i) => positionMarketIds.has(i.marketId))
@@ -57,6 +66,11 @@ export function InsightsTab({ marketId, positions = [] }: InsightsTabProps) {
   const handleDismiss = (mid: string) => {
     setInsights((prev) => prev.filter((i) => i.marketId !== mid));
   };
+
+  const displayed = useMemo(() => {
+    const list = filter === 'all' ? insights : insights.filter((i) => i.sentiment === filter);
+    return [...list].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [insights, filter]);
 
   // ── Disabled ──
   if (!enabled) {
@@ -140,28 +154,41 @@ export function InsightsTab({ marketId, positions = [] }: InsightsTabProps) {
     );
   }
 
-  // ── Insights list ──
+  // ── List ──
   return (
     <div className="it-tab">
       <AutoExitEditor />
-      <div className="it-list-header">
-        <div className="it-list-header-left">
-          <span className="it-list-title">Insights</span>
-          <span className="it-list-count">{insights.length}</span>
+
+      <div className="it-bar">
+        <div className="it-bar-left">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              className={`it-chip${filter === f.key ? ' it-chip--on' : ''}`}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
         <button className="it-refresh-btn" onClick={fetchInsights} title="Refresh">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
         </button>
       </div>
+
       <div className="it-list">
-        {insights.map((insight) => (
-          <InsightCard
-            key={insight.marketId}
-            insight={insight}
-            position={positions.find((p) => p.marketId === insight.marketId)}
-            onDismiss={() => handleDismiss(insight.marketId)}
-          />
-        ))}
+        {displayed.length === 0 ? (
+          <p className="it-no-match">No {filter} insights.</p>
+        ) : (
+          displayed.map((insight) => (
+            <InsightCard
+              key={insight.marketId}
+              insight={insight}
+              position={positions.find((p) => p.marketId === insight.marketId)}
+              onDismiss={() => handleDismiss(insight.marketId)}
+            />
+          ))
+        )}
       </div>
     </div>
   );

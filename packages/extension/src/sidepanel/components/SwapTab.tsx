@@ -159,15 +159,67 @@ export function SwapTab({ walletAddress }: SwapTabProps) {
 
   return (
     <div className="sw-container">
+      {/* Sentiment Swaps — Promoted to top */}
+      <div className="sw-section" style={{ borderColor: 'rgba(68,138,255,0.15)' }}>
+        <div className="sw-rec-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-blue)" strokeWidth="2" strokeLinecap="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          </svg>
+          <span className="sw-rec-title">AI Sentiment Swaps</span>
+          <Badge label="AI" variant="brand" size="sm" />
+        </div>
+        <span className="sw-section-subtitle">
+          AI-powered swap recommendations based on tweet sentiment analysis.
+        </span>
+
+        {sentimentRecs.length === 0 && !sentimentLoading && (
+          <button
+            className="sw-rec-action"
+            onClick={handleGetSentiment}
+          >
+            Analyze Recent Tweets
+          </button>
+        )}
+
+        {sentimentLoading && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 0', color: 'var(--text-secondary)', fontSize: 13 }}>
+            <div className="it-loading-spinner" style={{ width: 16, height: 16, borderWidth: 2 }} />
+            Analyzing sentiment...
+          </div>
+        )}
+
+        {sentimentRecs.map((rec, idx) => (
+          <div key={idx} className={`sw-rec-card ${rec.sentiment === 'bullish' ? 'sw-rec-card--bullish' : 'sw-rec-card--bearish'}`}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span className="sw-rec-pair">{rec.tokenIn.symbol} → {rec.tokenOut.symbol}</span>
+              <Badge
+                label={`${rec.sentiment === 'bullish' ? '\u2197' : '\u2198'} ${Math.round(rec.confidence * 100)}%`}
+                variant={rec.sentiment === 'bullish' ? 'positive' : 'negative'}
+                size="sm"
+              />
+            </div>
+            <span className="sw-rec-rationale">{rec.rationale}</span>
+            <button
+              className="sw-rec-action"
+              onClick={() => setModalRec(rec)}
+            >
+              Swap Now
+            </button>
+          </div>
+        ))}
+      </div>
+
       {/* Swap Section */}
       <div className="sw-section">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span className="sw-section-title">Swap Tokens</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="sw-section-title">Fund Your Trades</span>
+            <span className="sw-section-subtitle" style={{ margin: 0 }}>
+              Swap tokens → Get USDC → Trade
+            </span>
+          </div>
           <span className="sw-chain-badge">Sepolia</span>
         </div>
-        <span className="sw-section-subtitle">
-          Swap tokens via Uniswap. Get USDC to fund your Polymarket trades.
-        </span>
 
         {/* Token Pair */}
         <div className="sw-token-row">
@@ -235,12 +287,12 @@ export function SwapTab({ walletAddress }: SwapTabProps) {
         {quote?.quote && (
           <div className="sw-quote">
             <div className="sw-quote-highlight">
-              {quote.quote.amountOutReadable || quote.quote.amountOut || '—'} {tokenOut.symbol}
+              {quote.quote.amountOutReadable || quote.quote.amountOut || '\u2014'} {tokenOut.symbol}
             </div>
             <div className="sw-quote-row">
               <span>Gas Fee</span>
               <span className="sw-quote-value">
-                {quote.quote.gasFeeUSD ? `$${quote.quote.gasFeeUSD}` : (quote.quote.gasEstimate || '—')}
+                {quote.quote.gasFeeUSD ? `$${quote.quote.gasFeeUSD}` : (quote.quote.gasEstimate || '\u2014')}
               </span>
             </div>
             {quote.quote.priceImpact && quote.quote.priceImpact !== '0' && (
@@ -278,59 +330,13 @@ export function SwapTab({ walletAddress }: SwapTabProps) {
           </div>
         ) : (
           <button
-            className={`bm-confirm yes`}
+            className="bm-confirm yes"
             onClick={quote ? handleSwap : handleGetQuote}
             disabled={numericAmount <= 0 || isBusy}
           >
             {getButtonLabel()}
           </button>
         )}
-      </div>
-
-      {/* Sentiment Swaps Section */}
-      <div className="sw-section">
-        <div className="sw-rec-header">
-          <span className="sw-rec-title">Sentiment Swaps</span>
-          <Badge label="AI" variant="brand" size="sm" />
-        </div>
-        <span className="sw-section-subtitle">
-          AI-powered swap recommendations based on tweet sentiment analysis.
-        </span>
-
-        {sentimentRecs.length === 0 && !sentimentLoading && (
-          <button
-            className="sw-rec-action"
-            onClick={handleGetSentiment}
-          >
-            Analyze Recent Tweets
-          </button>
-        )}
-
-        {sentimentLoading && (
-          <div className="loading-state" style={{ padding: '12px 0' }}>
-            Analyzing sentiment...
-          </div>
-        )}
-
-        {sentimentRecs.map((rec, idx) => (
-          <div key={idx} className={`sw-rec-card ${rec.sentiment === 'bullish' ? 'sw-rec-card--bullish' : 'sw-rec-card--bearish'}`}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span className="sw-rec-pair">{rec.tokenIn.symbol} → {rec.tokenOut.symbol}</span>
-              <Badge
-                label={`${Math.round(rec.confidence * 100)}%`}
-                variant={rec.sentiment === 'bullish' ? 'positive' : 'negative'}
-                size="sm"
-              />
-            </div>
-            <span className="sw-rec-rationale">{rec.rationale}</span>
-            <button
-              className="sw-rec-action"
-              onClick={() => setModalRec(rec)}
-            >
-              Swap Now
-            </button>
-          </div>
-        ))}
       </div>
 
       {/* Sentiment Swap Modal */}

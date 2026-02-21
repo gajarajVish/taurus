@@ -12,7 +12,7 @@ interface SparklineProps {
 
 let sparklineIdCounter = 0;
 
-export function Sparkline({ data, color = '#4f8fff', width, height, filled = false }: SparklineProps) {
+export function Sparkline({ data, color = '#7C6BFF', width, height, filled = false }: SparklineProps) {
   // Internal coordinate space
   const vw = width ?? 200;
   const vh = height ?? 60;

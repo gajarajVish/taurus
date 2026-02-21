@@ -42,6 +42,7 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [walletState, setWalletState] = useState<WalletState>({ connected: false, address: null, chainId: null });
+  const [search, setSearch] = useState('');
 
   const fetchMarkets = useCallback(async () => {
     setLoading(true);
@@ -70,40 +71,74 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
     return () => chrome.storage.onChanged.removeListener(listener);
   }, [fetchMarkets]);
 
+  const filteredMarkets = search
+    ? markets.filter((m) => m.question.toLowerCase().includes(search.toLowerCase()))
+    : markets;
+
   if (loading) {
     return (
-      <div className="it-state">
-        <div className="it-spinner" />
-        <span className="it-state-text">Loading trending markets...</span>
+      <div className="tm-container">
+        <div className="loading-state">
+          <div className="it-loading-spinner" style={{ margin: '0 auto 8px' }} />
+          Loading trending markets...
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="it-state">
-        <span className="it-state-title">Something went wrong</span>
-        <span className="it-state-text">{error}</span>
-        <button className="it-retry" onClick={fetchMarkets}>Retry</button>
+      <div className="tm-container">
+        <div className="error-state">
+          <div style={{ marginBottom: 8 }}>{error}</div>
+          <button className="it-action-btn" onClick={fetchMarkets}>Retry</button>
+        </div>
       </div>
     );
   }
 
   if (markets.length === 0) {
     return (
-      <div className="it-state">
-        <span className="it-state-title">No markets found</span>
-        <span className="it-state-text">Check back later for trending prediction markets.</span>
+      <div className="tm-container">
+        <div className="loading-state">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" style={{ margin: '0 auto 8px', display: 'block' }}>
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          No trending markets right now. Check back later.
+        </div>
       </div>
     );
   }
 
   return (
     <div className="tm-container">
+      {/* Search bar */}
+      <div className="sm-input-row" style={{ margin: 0 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          type="text"
+          className="sm-input"
+          placeholder="Search markets..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 500 }}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 2 }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        )}
+      </div>
+
       <div className="tm-title-row">
         <div className="tm-title-left">
           <span className="tm-title">Trending</span>
-          <span className="tm-count">{markets.length}</span>
+          <span className="tm-count">{filteredMarkets.length}</span>
         </div>
         <button className="tm-reload press-effect" onClick={fetchMarkets} title="Refresh">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -118,7 +153,7 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
       )}
 
       <div className="tm-list">
-        {markets.map((m, i) => {
+        {filteredMarkets.map((m, i) => {
           const yesPercent = Math.round(parseFloat(m.yesPrice) * 100);
           const noPercent = 100 - yesPercent;
           return (
@@ -161,7 +196,6 @@ export function TrendingMarketsTab({ onBuy }: TrendingMarketsTabProps) {
           );
         })}
       </div>
-
     </div>
   );
 }
